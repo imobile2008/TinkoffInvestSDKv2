@@ -12,7 +12,25 @@ Orders::~Orders()
 
 }
 
-ServiceReply Orders::PostOrder(const std::string &figi, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId)
+ServiceReply Orders::PostOrder(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId)
+{
+    PostOrderRequest request;
+    request.set_instrument_id(instrumentId);
+    request.set_quantity(quantity);
+    auto price = new Quotation();
+    price->set_units(units);
+    price->set_nano(nano);
+    request.set_allocated_price(price);
+    request.set_direction(direction);
+    request.set_account_id(accountId);
+    request.set_order_type(orderType);
+    request.set_order_id(orderId);
+    PostOrderResponse reply;
+    Status status = m_ordersService->PostOrder(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
+}
+
+ServiceReply Orders::PostOrderFigiOld(const std::string &figi, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId)
 {
     PostOrderRequest request;
     request.set_figi(figi);
@@ -57,4 +75,21 @@ ServiceReply Orders::GetOrders(const std::string &accountId)
     GetOrdersResponse reply;
     Status status = m_ordersService->GetOrders(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<GetOrdersResponse>(status, reply);
+}
+
+ServiceReply Orders::ReplaceOrder(const std::string &accountId, const std::string &orderId, int64_t quantity, int64_t units, int32_t nano, PriceType priceType, const std::string &idempotencyKey)
+{
+    ReplaceOrderRequest request;
+    request.set_account_id(accountId);
+    request.set_order_id(orderId);
+    request.set_idempotency_key(idempotencyKey);
+    request.set_quantity(quantity);
+    auto price = new Quotation();
+    price->set_units(units);
+    price->set_nano(nano);
+    request.set_allocated_price(price);
+    request.set_price_type(priceType);
+    PostOrderResponse reply;
+    Status status = m_ordersService->ReplaceOrder(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
 }

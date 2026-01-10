@@ -37,7 +37,25 @@ ServiceReply Sandbox::CloseSandboxAccount(const std::string &accountId)
     return ServiceReply::prepareServiceAnswer<CloseSandboxAccountResponse>(status, reply);
 }
 
-ServiceReply Sandbox::PostSandboxOrder(const std::string &figi, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId)
+ServiceReply Sandbox::PostSandboxOrder(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId)
+{
+    PostOrderRequest request;
+    request.set_instrument_id(instrumentId);
+    request.set_quantity(quantity);
+    auto price = new Quotation();
+    price->set_units(units);
+    price->set_nano(nano);
+    request.set_allocated_price(price);
+    request.set_direction(direction);
+    request.set_account_id(accountId);
+    request.set_order_type(orderType);
+    request.set_order_id(orderId);
+    PostOrderResponse reply;
+    Status status = m_sandboxService->PostSandboxOrder(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
+}
+
+ServiceReply Sandbox::PostSandboxOrderFigiOld(const std::string &figi, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId)
 {
     PostOrderRequest request;
     request.set_figi(figi);
@@ -54,6 +72,7 @@ ServiceReply Sandbox::PostSandboxOrder(const std::string &figi, int64_t quantity
     Status status = m_sandboxService->PostSandboxOrder(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
 }
+
 
 ServiceReply Sandbox::GetSandboxOrders(const std::string &accountId)
 {
@@ -132,4 +151,70 @@ ServiceReply Sandbox::SandboxPayIn(const std::string &accountId, const std::stri
     SandboxPayInResponse reply;
     Status status = m_sandboxService->SandboxPayIn(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<SandboxPayInResponse>(status, reply);
+}
+
+ServiceReply Sandbox::ReplaceSandboxOrder(const std::string &accountId, const std::string &orderId, int64_t quantity, int64_t units, int32_t nano, PriceType priceType, const std::string &idempotencyKey)
+{
+    ReplaceOrderRequest request;
+    request.set_account_id(accountId);
+    request.set_order_id(orderId);
+    request.set_idempotency_key(idempotencyKey);
+    request.set_quantity(quantity);
+    auto price = new Quotation();
+    price->set_units(units);
+    price->set_nano(nano);
+    request.set_allocated_price(price);
+    request.set_price_type(priceType);
+    PostOrderResponse reply;
+    Status status = m_sandboxService->ReplaceSandboxOrder(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
+}
+
+ServiceReply Sandbox::GetSandboxOperationsByCursor(const std::string &accountId, const std::string &instrumentId, int64_t fromseconds, int32_t fromnanos, 
+                                                    int64_t toseconds, int32_t tonanos, const std::string &cursor, int32_t limit, 
+                                                    const std::vector<OperationType> &operationTypes, OperationState state,
+                                                    bool withoutCommissions, bool withoutTrades, bool withoutOvernights)
+{
+    GetOperationsByCursorRequest request;
+    request.set_account_id(accountId);
+    request.set_instrument_id(instrumentId);
+    
+    if (fromseconds > 0 || fromnanos > 0) {
+        google::protobuf::Timestamp *from = new google::protobuf::Timestamp();
+        from->set_seconds(fromseconds);
+        from->set_nanos(fromnanos);
+        request.set_allocated_from(from);
+    }
+    
+    if (toseconds > 0 || tonanos > 0) {
+        google::protobuf::Timestamp *to = new google::protobuf::Timestamp();
+        to->set_seconds(toseconds);
+        to->set_nanos(tonanos);
+        request.set_allocated_to(to);
+    }
+    
+    request.set_cursor(cursor);
+    request.set_limit(limit);
+    
+    for (const auto& opType : operationTypes) {
+        request.add_operation_types(opType);
+    }
+    
+    request.set_state(state);
+    request.set_without_commissions(withoutCommissions);
+    request.set_without_trades(withoutTrades);
+    request.set_without_overnights(withoutOvernights);
+    
+    GetOperationsByCursorResponse reply;
+    Status status = m_sandboxService->GetSandboxOperationsByCursor(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<GetOperationsByCursorResponse>(status, reply);
+}
+
+ServiceReply Sandbox::GetSandboxWithdrawLimits(const std::string &accountId)
+{
+    WithdrawLimitsRequest request;
+    request.set_account_id(accountId);
+    WithdrawLimitsResponse reply;
+    Status status = m_sandboxService->GetSandboxWithdrawLimits(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<WithdrawLimitsResponse>(status, reply);
 }

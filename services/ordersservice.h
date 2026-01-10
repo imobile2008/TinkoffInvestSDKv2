@@ -15,9 +15,10 @@ using namespace tinkoff::public_::invest::api::contract::v1;
     Сервис предназначен для работы с торговыми поручениями:
     1.выставление;
     2.отмена;
-    3.получение статуса;
-    4.расчёт полной стоимости;
-    5.получение списка заявок.
+    3.изменение;
+    4.получение статуса;
+    5.расчёт полной стоимости;
+    6.получение списка заявок.
 */
 class TINKOFFINVESTSDK_EXPORT Orders: public CustomService
 {
@@ -26,10 +27,14 @@ public:
     Orders(std::shared_ptr<Channel> channel, const std::string &token);
     ~Orders();
 
-    /// Метод выставления заявки
-    ServiceReply PostOrder(const std::string &figi, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId);
+    /// Метод выставления заявки (использует instrument_id)
+    ServiceReply PostOrder(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId);
+    /// Метод выставления заявки (устаревший метод, использующий figi)
+    ServiceReply PostOrderFigiOld(const std::string &figi, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId);
     /// Метод отмены биржевой заявки
     ServiceReply CancelOrder(const std::string &accountId, const std::string &orderId);
+    /// Метод изменения заявки
+    ServiceReply ReplaceOrder(const std::string &accountId, const std::string &orderId, int64_t quantity, int64_t units, int32_t nano, PriceType priceType, const std::string &idempotencyKey);
     /// Метод получения статуса торгового поручения
     ServiceReply GetOrderState(const std::string &accountId, const std::string &orderId);
     /// Метод получения списка активных заявок по счёту
