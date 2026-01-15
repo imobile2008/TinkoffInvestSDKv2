@@ -8,7 +8,7 @@
 
 using grpc::Status;
 
-static const std::string APP_NAME = "samoilovv.TinkoffInvestSDK";
+static const std::string APP_NAME = "imobile2008.TinkoffInvestSDKv2";
 
 /*!
     \brief Класс-обертка над proto-ответами сервисов
