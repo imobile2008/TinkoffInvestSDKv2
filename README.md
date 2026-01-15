@@ -16,8 +16,8 @@ C++ client for Tinkoff invest API
 Клонируйте репозиторий:
 
 ```bash
-git clone https://github.com/samoilovv/TinkoffInvestSDK.git
-cd TinkoffInvestSDK
+git clone https://github.com/imobile2008/TinkoffInvestSDKv2.git
+cd TinkoffInvestSDKv2
 git submodule update --init --recursive
 ``` 
 
@@ -32,7 +32,7 @@ cmake --build .
 
 ## Примеры
 
-Примеры доступны [здесь](https://github.com/samoilovv/TinkoffInvestSDK/tree/main/samples). Для запуска примеров необходимо добавить токен в переменную окружения.
+Примеры доступны [здесь](https://github.com/imobile2008/TinkoffInvestSDKv2/tree/main/samples).
 
 <!-- termynal -->
 
@@ -186,4 +186,4 @@ subscribe_trades_response {
 
 ## Документация
 
-Подробную документацию можно найти по [ссылке](https://samoilovv.github.io/TinkoffInvestSDK/). Вопросы и предложения [сюда](https://github.com/samoilovv/TinkoffInvestSDK/issues).
+Подробную документацию можно найти по [ссылке](https://imobile2008.github.io/TinkoffInvestSDKv2/). Вопросы и предложения [сюда](https://github.com/imobile2008/TinkoffInvestSDKv2/issues).

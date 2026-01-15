@@ -121,3 +121,43 @@ ServiceReply Operations::GetDividendsForeignIssuer(const std::string &taskId, in
     return ServiceReply::prepareServiceAnswer<GetDividendsForeignIssuerResponse>(status, reply);
 }
 
+ServiceReply Operations::GetOperationsByCursor(const std::string &accountId, const std::string &instrumentId, int64_t fromseconds, int32_t fromnanos, 
+                                               int64_t toseconds, int32_t tonanos, const std::string &cursor, int32_t limit, 
+                                               const std::vector<OperationType> &operationTypes, OperationState state,
+                                               bool withoutCommissions, bool withoutTrades, bool withoutOvernights)
+{
+    GetOperationsByCursorRequest request;
+    request.set_account_id(accountId);
+    request.set_instrument_id(instrumentId);
+    
+    if (fromseconds > 0 || fromnanos > 0) {
+        google::protobuf::Timestamp *from = new google::protobuf::Timestamp();
+        from->set_seconds(fromseconds);
+        from->set_nanos(fromnanos);
+        request.set_allocated_from(from);
+    }
+    
+    if (toseconds > 0 || tonanos > 0) {
+        google::protobuf::Timestamp *to = new google::protobuf::Timestamp();
+        to->set_seconds(toseconds);
+        to->set_nanos(tonanos);
+        request.set_allocated_to(to);
+    }
+    
+    request.set_cursor(cursor);
+    request.set_limit(limit);
+    
+    for (const auto& opType : operationTypes) {
+        request.add_operation_types(opType);
+    }
+    
+    request.set_state(state);
+    request.set_without_commissions(withoutCommissions);
+    request.set_without_trades(withoutTrades);
+    request.set_without_overnights(withoutOvernights);
+    
+    GetOperationsByCursorResponse reply;
+    Status status = m_operationsService->GetOperationsByCursor(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<GetOperationsByCursorResponse>(status, reply);
+}
+

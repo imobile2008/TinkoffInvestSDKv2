@@ -19,6 +19,9 @@ using namespace tinkoff::public_::invest::api::contract::v1;
     3.позиций ценных бумаг на счёте;
     4.доступного остатка для вывода средств;
     5.получения различных отчётов.
+    6.операций по счёту с пагинацией;
+    7.потокового обновления портфеля;
+    8.потокового обновления позиций.
 */
 class TINKOFFINVESTSDK_EXPORT Operations: public CustomService
 {
@@ -43,6 +46,12 @@ public:
     ServiceReply GetDividendsForeignIssuer(const std::string  &accountId, int64_t fromseconds, int32_t fromnanos, int64_t toseconds, int32_t tonanos);
     /// Метод получения отчёта "Справка о доходах за пределами РФ"
     ServiceReply GetDividendsForeignIssuer(const std::string &taskId, int32_t page);
+    
+    /// Метод получения списка операций по счёту с пагинацией
+    ServiceReply GetOperationsByCursor(const std::string &accountId, const std::string &instrumentId, int64_t fromseconds, int32_t fromnanos, 
+                                       int64_t toseconds, int32_t tonanos, const std::string &cursor, int32_t limit, 
+                                       const std::vector<OperationType> &operationTypes, OperationState state,
+                                       bool withoutCommissions, bool withoutTrades, bool withoutOvernights);
 
 private:
     std::unique_ptr<OperationsService::Stub> m_operationsService;
