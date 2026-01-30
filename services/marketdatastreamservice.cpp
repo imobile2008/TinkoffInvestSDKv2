@@ -29,6 +29,41 @@ bool MarketDataStream::SubscribeCandles(const std::vector<std::pair<std::string,
     for (auto &candleInstrument: candleInstruments)
     {
         auto instr = scr->add_instruments();
+        instr->set_instrument_id(candleInstrument.first);
+        instr->set_interval(candleInstrument.second);
+    }
+    request.set_allocated_subscribe_candles_request(scr);
+
+    std::thread writer([stream, request]() {
+        stream->Write(request);
+        stream->WritesDone();
+    });
+
+    MarketDataResponse reply;
+    while (stream->Read(&reply)) {
+        auto data = ServiceReply(std::make_shared<MarketDataResponse>(reply), {});
+        if (callback) callback(data);
+    }
+    writer.join();
+    Status status = stream->Finish();
+    return status.ok();
+}
+
+bool MarketDataStream::SubscribeCandlesFigiOld(const std::vector<std::pair<std::string, SubscriptionInterval>> &candleInstruments, CallbackFunc callback)
+{
+    ClientContext context;
+    std::string meta_value = "Bearer " + m_token;
+    context.AddMetadata("authorization", meta_value);
+    context.AddMetadata("x-app-name", APP_NAME);
+    std::shared_ptr<ClientReaderWriter<MarketDataRequest, MarketDataResponse> > stream(
+        m_marketDataStreamService->MarketDataStream(&context));
+
+    MarketDataRequest request;
+    auto scr = new SubscribeCandlesRequest();
+    scr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    for (auto &candleInstrument: candleInstruments)
+    {
+        auto instr = scr->add_instruments();
         instr->set_figi(candleInstrument.first);
         instr->set_interval(candleInstrument.second);
     }
@@ -77,7 +112,41 @@ bool MarketDataStream::UnSubscribeCandles()
     return status.ok();
 }
 
-bool MarketDataStream::SubscribeOrderBook(const std::string &figi, int32_t depth, CallbackFunc callback)
+bool MarketDataStream::SubscribeOrderBook(const Strings &instrumentIds, int32_t depth, CallbackFunc callback)
+{
+    ClientContext context;
+    std::string meta_value = "Bearer " + m_token;
+    context.AddMetadata("authorization", meta_value);
+    context.AddMetadata("x-app-name", APP_NAME);
+    std::shared_ptr<ClientReaderWriter<MarketDataRequest, MarketDataResponse> > stream(
+        m_marketDataStreamService->MarketDataStream(&context));
+
+    MarketDataRequest request;
+    auto sobr = new SubscribeOrderBookRequest();
+    sobr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    for (const auto& instrumentId : instrumentIds) {
+        auto obi = sobr->add_instruments();
+        obi->set_instrument_id(instrumentId);
+        obi->set_depth(depth);
+    }
+    request.set_allocated_subscribe_order_book_request(sobr);
+
+    std::thread writer([stream, request]() {
+        stream->Write(request);
+        stream->WritesDone();
+    });
+
+    MarketDataResponse reply;
+    while (stream->Read(&reply)) {
+        auto data = ServiceReply(std::make_shared<MarketDataResponse>(reply), {});
+        if (callback) callback(data);
+    }
+    writer.join();
+    Status status = stream->Finish();
+    return status.ok();
+}
+
+bool MarketDataStream::SubscribeOrderBookFigiOld(const std::string &figi, int32_t depth, CallbackFunc callback)
 {
     ClientContext context;
     std::string meta_value = "Bearer " + m_token;
@@ -137,7 +206,41 @@ bool MarketDataStream::UnSubscribeOrderBook()
     return status.ok();
 }
 
-bool MarketDataStream::SubscribeInfo(const Strings &figis, CallbackFunc callback)
+bool MarketDataStream::SubscribeInfo(const Strings &instrumentIds, CallbackFunc callback)
+{
+    ClientContext context;
+    std::string meta_value = "Bearer " + m_token;
+    context.AddMetadata("authorization", meta_value);
+    context.AddMetadata("x-app-name", APP_NAME);
+    std::shared_ptr<ClientReaderWriter<MarketDataRequest, MarketDataResponse> > stream(
+        m_marketDataStreamService->MarketDataStream(&context));
+
+    MarketDataRequest request;
+    auto sir = new SubscribeInfoRequest();
+    for (auto &instrumentId: instrumentIds)
+    {
+        auto obi = sir->add_instruments();
+        obi->set_instrument_id(instrumentId);
+    }
+    sir->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    request.set_allocated_subscribe_info_request(sir);
+
+    std::thread writer([stream, request]() {
+        stream->Write(request);
+        stream->WritesDone();
+    });
+
+    MarketDataResponse reply;
+    while (stream->Read(&reply)) {
+        auto data = ServiceReply(std::make_shared<MarketDataResponse>(reply), {});
+        if (callback) callback(data);
+    }
+    writer.join();
+    Status status = stream->Finish();
+    return status.ok();
+}
+
+bool MarketDataStream::SubscribeInfoFigiOld(const Strings &figis, CallbackFunc callback)
 {
     ClientContext context;
     std::string meta_value = "Bearer " + m_token;
@@ -199,7 +302,41 @@ bool MarketDataStream::UnSubscribeInfo()
     return status.ok();
 }
 
-bool MarketDataStream::SubscribeTrades(const Strings &figis, CallbackFunc callback)
+bool MarketDataStream::SubscribeTrades(const Strings &instrumentIds, CallbackFunc callback)
+{
+    ClientContext context;
+    std::string meta_value = "Bearer " + m_token;
+    context.AddMetadata("authorization", meta_value);
+    context.AddMetadata("x-app-name", APP_NAME);
+    std::shared_ptr<ClientReaderWriter<MarketDataRequest, MarketDataResponse> > stream(
+        m_marketDataStreamService->MarketDataStream(&context));
+
+    MarketDataRequest request;
+    auto str = new SubscribeTradesRequest();
+    str->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    for (auto &instrumentId: instrumentIds)
+    {
+        auto instr = str->add_instruments();
+        instr->set_instrument_id(instrumentId);
+    }
+    request.set_allocated_subscribe_trades_request(str);
+
+    std::thread writer([stream, request]() {
+        stream->Write(request);
+        stream->WritesDone();
+    });
+
+    MarketDataResponse reply;
+    while (stream->Read(&reply)) {
+        auto data = ServiceReply(std::make_shared<MarketDataResponse>(reply), {});
+        if (callback) callback(data);
+    }
+    writer.join();
+    Status status = stream->Finish();
+    return status.ok();
+}
+
+bool MarketDataStream::SubscribeTradesFigiOld(const Strings &figis, CallbackFunc callback)
 {
     ClientContext context;
     std::string meta_value = "Bearer " + m_token;
@@ -261,7 +398,43 @@ bool MarketDataStream::UnSubscribeTrades()
     return status.ok();
 }
 
-bool MarketDataStream::SubscribeLastPrice(const Strings &figis, CallbackFunc callback)
+bool MarketDataStream::SubscribeLastPrice(const Strings &instrumentIds, CallbackFunc callback)
+{
+    ClientContext context;
+    std::string meta_value = "Bearer " + m_token;
+    context.AddMetadata("authorization", meta_value);
+    context.AddMetadata("x-app-name", APP_NAME);
+    std::shared_ptr<ClientReaderWriter<MarketDataRequest, MarketDataResponse> > stream(
+        m_marketDataStreamService->MarketDataStream(&context));
+
+    MarketDataRequest request;
+    auto slpr = new SubscribeLastPriceRequest();
+    for (auto &instrumentId: instrumentIds)
+    {
+        auto obi = slpr->add_instruments();
+        obi->set_instrument_id(instrumentId);
+    }
+    slpr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    request.set_allocated_subscribe_last_price_request(slpr);
+
+    std::thread writer([stream, request]() {
+        stream->Write(request);
+        stream->WritesDone();
+    });
+
+    MarketDataResponse reply;
+
+    while (stream->Read(&reply)) {
+        auto data = ServiceReply(std::make_shared<MarketDataResponse>(reply), {});
+        if (callback) callback(data);
+    }
+    writer.join();
+
+    Status status = stream->Finish();
+    return status.ok();
+}
+
+bool MarketDataStream::SubscribeLastPriceFigiOld(const Strings &figis, CallbackFunc callback)
 {
     ClientContext context;
     std::string meta_value = "Bearer " + m_token;
@@ -305,6 +478,21 @@ void MarketDataStream::SubscribeCandlesAsync(const std::vector<std::pair<std::st
     for (auto &candleInstrument: candleInstruments)
     {
         auto instr = scr->add_instruments();
+        instr->set_instrument_id(candleInstrument.first);
+        instr->set_interval(candleInstrument.second);
+    }
+    request.set_allocated_subscribe_candles_request(scr);
+    SendRequest(request, callback);
+}
+
+void MarketDataStream::SubscribeCandlesFigiOldAsync(const std::vector<std::pair<std::string, SubscriptionInterval> > &candleInstruments, CallbackFunc callback)
+{ 
+    MarketDataRequest request;
+    auto scr = new SubscribeCandlesRequest();
+    scr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    for (auto &candleInstrument: candleInstruments)
+    {
+        auto instr = scr->add_instruments();
         instr->set_figi(candleInstrument.first);
         instr->set_interval(candleInstrument.second);
     }
@@ -312,7 +500,21 @@ void MarketDataStream::SubscribeCandlesAsync(const std::vector<std::pair<std::st
     SendRequest(request, callback);
 }
 
-void MarketDataStream::SubscribeOrderBookAsync(const Strings &figis, int32_t depth, CallbackFunc callback)
+void MarketDataStream::SubscribeOrderBookAsync(const Strings &instrumentIds, int32_t depth, CallbackFunc callback)
+{
+    MarketDataRequest request;
+    auto sobr = new SubscribeOrderBookRequest();
+    sobr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    for (const auto& instrumentId : instrumentIds) {
+        auto obi = sobr->add_instruments();
+        obi->set_instrument_id(instrumentId);
+        obi->set_depth(depth);
+    }
+    request.set_allocated_subscribe_order_book_request(sobr);
+    SendRequest(request, callback);
+}
+
+void MarketDataStream::SubscribeOrderBookFigiOldAsync(const Strings &figis, int32_t depth, CallbackFunc callback)
 {
     MarketDataRequest request;
     auto sobr = new SubscribeOrderBookRequest();
@@ -326,7 +528,21 @@ void MarketDataStream::SubscribeOrderBookAsync(const Strings &figis, int32_t dep
     SendRequest(request, callback);
 }
 
-void MarketDataStream::SubscribeTradesAsync(const Strings &figis, CallbackFunc callback)
+void MarketDataStream::SubscribeTradesAsync(const Strings &instrumentIds, CallbackFunc callback)
+{
+    MarketDataRequest request;
+    auto str = new SubscribeTradesRequest();
+    str->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    for (auto &instrumentId: instrumentIds)
+    {
+        auto instr = str->add_instruments();
+        instr->set_instrument_id(instrumentId);
+    }
+    request.set_allocated_subscribe_trades_request(str);
+    SendRequest(request, callback);
+}
+
+void MarketDataStream::SubscribeTradesFigiOldAsync(const Strings &figis, CallbackFunc callback)
 {
     MarketDataRequest request;
     auto str = new SubscribeTradesRequest();
@@ -340,7 +556,21 @@ void MarketDataStream::SubscribeTradesAsync(const Strings &figis, CallbackFunc c
     SendRequest(request, callback);
 }
 
-void MarketDataStream::SubscribeInfoAsync(const Strings &figis, CallbackFunc callback)
+void MarketDataStream::SubscribeInfoAsync(const Strings &instrumentIds, CallbackFunc callback)
+{
+    MarketDataRequest request;
+    auto sir = new SubscribeInfoRequest();
+    for (auto &instrumentId: instrumentIds)
+    {
+        auto obi = sir->add_instruments();
+        obi->set_instrument_id(instrumentId);
+    }
+    sir->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    request.set_allocated_subscribe_info_request(sir);
+    SendRequest(request, callback);
+}
+
+void MarketDataStream::SubscribeInfoFigiOldAsync(const Strings &figis, CallbackFunc callback)
 {
     MarketDataRequest request;
     auto sir = new SubscribeInfoRequest();
@@ -354,7 +584,21 @@ void MarketDataStream::SubscribeInfoAsync(const Strings &figis, CallbackFunc cal
     SendRequest(request, callback);
 }
 
-void MarketDataStream::SubscribeLastPriceAsync(const Strings &figis, CallbackFunc callback)
+void MarketDataStream::SubscribeLastPriceAsync(const Strings &instrumentIds, CallbackFunc callback)
+{
+    MarketDataRequest request;
+    auto slpr = new SubscribeLastPriceRequest();
+    for (auto &instrumentId: instrumentIds)
+    {
+        auto obi = slpr->add_instruments();
+        obi->set_instrument_id(instrumentId);
+    }
+    slpr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+    request.set_allocated_subscribe_last_price_request(slpr);
+    SendRequest(request, callback);
+}
+
+void MarketDataStream::SubscribeLastPriceFigiOldAsync(const Strings &figis, CallbackFunc callback)
 {
     MarketDataRequest request;
     auto slpr = new SubscribeLastPriceRequest();
@@ -450,5 +694,7 @@ void MarketDataStream::SendRequest(const MarketDataRequest &request, CallbackFun
     handler->send(request);
     m_currentHandlers.insert(handler);
 }
+
+
 
 
