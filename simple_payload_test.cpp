@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cassert>
 #include "services/marketdatastreamresponse.h"
+#include "services/commontypes.h"
 
 using namespace tinkoff::public_::invest::api::contract::v1;
 
