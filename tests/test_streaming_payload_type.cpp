@@ -107,7 +107,7 @@ protected:
     MarketDataResponse createSubscribeInfoResponse() {
         MarketDataResponse response;
         response.mutable_subscribe_info_response()->set_tracking_id("test-tracking-id");
-        response.mutable_subscribe_info_response()->set_figi("BBG000B9XRY4");
+        // Note: SubscribeInfoResponse only contains tracking_id, not figi
         return response;
     }
 };
@@ -148,7 +148,7 @@ TEST_F(MarketDataStreamResponseTypeSafetyTest, SubscribeInfoTypeSafeAccessor) {
     EXPECT_NO_THROW({
         const auto& subscribeInfo = response.getSubscribeInfoResponse();
         EXPECT_EQ(subscribeInfo.tracking_id(), "test-tracking-id");
-        EXPECT_EQ(subscribeInfo.figi(), "BBG000B9XRY4");
+        // Note: SubscribeInfoResponse only contains tracking_id, not figi
     });
 }
 
