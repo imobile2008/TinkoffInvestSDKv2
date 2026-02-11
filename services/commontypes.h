@@ -5,6 +5,7 @@
 #include <functional>
 #include "google/protobuf/message.h"
 #include "tinkoffinvestsdk_export.h"
+#include "marketdatastreamresponse.h"
 
 using grpc::Status;
 
@@ -21,12 +22,20 @@ class TINKOFFINVESTSDK_EXPORT ServiceReply
 public:
     ServiceReply();
     ServiceReply(const std::shared_ptr<google::protobuf::Message> protoMsg, const Status& status, const std::string& messageIfError = "");
+    
+    // Constructor for MarketDataStreamResponse compatibility
+    ServiceReply(const MarketDataStreamResponse& streamResponse, const Status& status = Status());
+    
     const std::shared_ptr<google::protobuf::Message> ptr();
     const std::string accountID(const int i);
     const std::string accountName(const int i);
     int accountCount();
     const Status& GetStatus() const;
 	const std::string& GetErrorMessage() const;
+
+    // MarketDataStreamResponse access methods
+    bool hasMarketDataStreamResponse() const;
+    const MarketDataStreamResponse& getMarketDataStreamResponse() const;
 
 	template<class T>
     static const ServiceReply prepareServiceAnswer(const Status &status, const T &protoMsg, const std::string& messageIfError = "")
@@ -38,6 +47,9 @@ private:
     std::shared_ptr<google::protobuf::Message> m_replyPtr;
     Status m_status;
 	std::string m_errorMessage;
+    
+    // Optional MarketDataStreamResponse for streaming support
+    std::shared_ptr<MarketDataStreamResponse> m_streamResponse;
 };
 
 using CallbackFunc = std::function<void (ServiceReply)>;

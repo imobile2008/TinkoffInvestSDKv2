@@ -100,3 +100,4 @@ target_link_libraries(${PROJECT_NAME}
     )
 
 add_subdirectory(samples)
+add_subdirectory(tests)

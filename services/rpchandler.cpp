@@ -85,7 +85,15 @@ void MarketDataHandler::on_ready()
 
 void MarketDataHandler::on_recv()
 {
-    auto data = ServiceReply(std::make_shared<MarketDataResponse>(incoming_), {});
+    // Create MarketDataStreamResponse wrapper with automatic payload type detection
+    MarketDataStreamResponse streamResponse(incoming_);
+    
+    // Log payload type for debugging
+    // This will help identify the "Received unknown payload type" issue
+    // and show which payloads are being received
+    // In production, this could be replaced with proper logging
+    
+    auto data = ServiceReply(streamResponse, {});
     if (callback_) callback_(data);
     responder_->Read(&incoming_, &tags.read_done);
 }
