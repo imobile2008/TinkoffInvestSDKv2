@@ -1,0 +1,9 @@
+# Tinkoff Invest API Token
+# 
+# IMPORTANT: This file contains a sensitive API token.
+# DO NOT commit this file to version control!
+# Copy this file to .test_token.txt and add your actual token.
+#
+# Example format:
+# t.your_actual_token_here
+

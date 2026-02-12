@@ -13,6 +13,9 @@
 #include <memory>
 #include <string>
 #include <functional>
+#include <fstream>
+#include <algorithm>
+#include <cctype>
 
 #include "investapiclient.h"
 #include "marketdatastreamservice.h"
@@ -20,9 +23,49 @@
 
 using namespace tinkoff::public_::invest::api::contract::v1;
 
-const std::string TEST_TOKEN = "t.e4iyfAR0fY7HjOBI6foZUeh8dNv2-GRHSh6Z76UIcD9LKJC8dMTa7iL6WxbMLGE8_VlPvskFn8mvvzzsGlARWg";
+// Token file path (relative to project root)
+const std::string TOKEN_FILE_PATH = "../.test_token.txt";
+
+// Read API token from file
+std::string readTokenFromFile(const std::string& filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        // Return empty string if file not found
+        return "";
+    }
+    
+    std::string token;
+    std::getline(file, token);
+    
+    // Remove whitespace and comments
+    token.erase(std::remove_if(token.begin(), token.end(), 
+                               [](unsigned char c) { return std::isspace(c) || c == '#'; }),
+                token.end());
+    
+    file.close();
+    return token;
+}
+
+// Get the API token - prefer file, fallback to environment variable
+std::string getApiToken() {
+    // Try to read from file first
+    std::string token = readTokenFromFile(TOKEN_FILE_PATH);
+    if (!token.empty()) {
+        return token;
+    }
+    
+    // Fallback to environment variable
+    const char* envToken = std::getenv("TINKOFF_TOKEN");
+    if (envToken != nullptr) {
+        return std::string(envToken);
+    }
+    
+    // Return empty string if no token found
+    return "";
+}
+
 const std::string TEST_HOST = "invest-public-api.tinkoff.ru:443";
-const std::string TEST_FIGI = "BBG000B9XRY4";
+const std::string TEST_FIGI = "BBG004S68104";  // Sberbank
 
 // Helper class to manage streaming test lifecycle with timeout
 class StreamingTestHelper {
@@ -90,7 +133,8 @@ void marketStreamCallback(StreamingTestHelper& helper, ServiceReply reply)
 int main()
 {
     std::cout << "=== Tinkoff Invest Streaming API Test ===" << std::endl;
-    std::cout << "Token: " << TEST_TOKEN.substr(0, 20) << "..." << std::endl;
+    std::string apiToken = getApiToken();
+    std::cout << "Token: " << apiToken.substr(0, 20) << "..." << std::endl;
     std::cout << "Host: " << TEST_HOST << std::endl;
     std::cout << "Test FIGI: " << TEST_FIGI << std::endl;
     std::cout << std::endl;
@@ -98,7 +142,7 @@ int main()
     try {
         // Create client with SSL credentials
         std::cout << "1. Creating InvestApiClient..." << std::endl;
-        InvestApiClient client(TEST_HOST, TEST_TOKEN);
+        InvestApiClient client(TEST_HOST, apiToken);
         std::cout << "   Client created successfully" << std::endl;
         
         // Get MarketDataStream service

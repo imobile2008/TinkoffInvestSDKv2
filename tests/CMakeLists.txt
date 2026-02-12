@@ -76,3 +76,37 @@ target_link_libraries(test_streaming_simple
         Threads::Threads
 )
 
+# Last price streaming tests (gtest)
+add_executable(test_streaming_last_price test_streaming_last_price.cpp)
+
+target_link_libraries(test_streaming_last_price
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_streaming_last_price COMMAND test_streaming_last_price)
+
+# Order book streaming tests (gtest)
+add_executable(test_streaming_orderbook test_streaming_orderbook.cpp)
+
+target_link_libraries(test_streaming_orderbook
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_streaming_orderbook COMMAND test_streaming_orderbook)
+

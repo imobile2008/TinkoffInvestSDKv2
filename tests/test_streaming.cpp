@@ -26,6 +26,9 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <fstream>
+#include <algorithm>
+#include <cctype>
 
 // Include SDK headers
 #include "investapiclient.h"
@@ -35,10 +38,50 @@
 
 using namespace tinkoff::public_::invest::api::contract::v1;
 
-const std::string TEST_TOKEN = "t.e4iyfAR0fY7HjOBI6foZUeh8dNv2-GRHSh6Z76UIcD9LKJC8dMTa7iL6WxbMLGE8_VlPvskFn8mvvzzsGlARWg";
+// Token file path (relative to project root)
+const std::string TOKEN_FILE_PATH = "../.test_token.txt";
+
+// Read API token from file
+std::string readTokenFromFile(const std::string& filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        // Return empty string if file not found
+        return "";
+    }
+    
+    std::string token;
+    std::getline(file, token);
+    
+    // Remove whitespace and comments
+    token.erase(std::remove_if(token.begin(), token.end(), 
+                               [](unsigned char c) { return std::isspace(c) || c == '#'; }),
+                token.end());
+    
+    file.close();
+    return token;
+}
+
+// Get the API token - prefer file, fallback to environment variable
+std::string getApiToken() {
+    // Try to read from file first
+    std::string token = readTokenFromFile(TOKEN_FILE_PATH);
+    if (!token.empty()) {
+        return token;
+    }
+    
+    // Fallback to environment variable
+    const char* envToken = std::getenv("TINKOFF_TOKEN");
+    if (envToken != nullptr) {
+        return std::string(envToken);
+    }
+    
+    // Return empty string if no token found
+    return "";
+}
+
 const std::string TEST_HOST = "invest-public-api.tinkoff.ru:443";
 const std::string TEST_ACCOUNT_ID = "test_account_id";
-const std::string TEST_FIGI = "BBG000B9XRY4";
+const std::string TEST_FIGI = "BBG004S68104";  // Sberbank
 
 // Helper function to get first account ID (for unit tests with mock services)
 std::string getFirstAccountId() {
@@ -54,7 +97,7 @@ protected:
     void SetUp() override {
         std::cout << "Setting up MarketDataStreamTest..." << std::endl;
         auto channel = grpc::CreateChannel(TEST_HOST, grpc::SslCredentials(grpc::SslCredentialsOptions()));
-        stream = std::make_shared<MarketDataStream>(channel, TEST_TOKEN);
+        stream = std::make_shared<MarketDataStream>(channel, getApiToken());
         std::cout << "MarketDataStream created successfully" << std::endl;
     }
 
@@ -281,7 +324,7 @@ class OrdersStreamTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto channel = grpc::CreateChannel(TEST_HOST, grpc::SslCredentials(grpc::SslCredentialsOptions()));
-        stream = std::make_shared<OrdersStream>(channel, TEST_TOKEN);
+        stream = std::make_shared<OrdersStream>(channel, getApiToken());
     }
 
     void TearDown() override {
@@ -343,7 +386,7 @@ class StreamingIntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto channel = grpc::CreateChannel(TEST_HOST, grpc::SslCredentials(grpc::SslCredentialsOptions()));
-        client = std::make_unique<InvestApiClient>(TEST_HOST, TEST_TOKEN);
+        client = std::make_unique<InvestApiClient>(TEST_HOST, getApiToken());
     }
 
     std::unique_ptr<InvestApiClient> client;
@@ -392,7 +435,7 @@ class StreamingPerformanceTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto channel = grpc::CreateChannel(TEST_HOST, grpc::SslCredentials(grpc::SslCredentialsOptions()));
-        stream = std::make_shared<MarketDataStream>(channel, TEST_TOKEN);
+        stream = std::make_shared<MarketDataStream>(channel, getApiToken());
     }
 
     std::shared_ptr<MarketDataStream> stream;
@@ -433,7 +476,7 @@ class StreamingErrorHandlingTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto channel = grpc::CreateChannel(TEST_HOST, grpc::SslCredentials(grpc::SslCredentialsOptions()));
-        stream = std::make_shared<MarketDataStream>(channel, TEST_TOKEN);
+        stream = std::make_shared<MarketDataStream>(channel, getApiToken());
     }
 
     std::shared_ptr<MarketDataStream> stream;
@@ -456,9 +499,9 @@ TEST_F(StreamingErrorHandlingTest, SpecialCharactersInFigiHandles) {
     std::cout << "Special characters in FIGI test starting..." << std::endl;
 
     std::vector<std::string> figis = {
-        "BBG000B9XRY4",
-        "BBG004730JJ5",
-        "BBG00JXPFBN0"
+        "BBG004S68104",  // Sberbank
+        "BBG004730JJ5",  // Moscow Exchange
+        "BBG00JXPFBN0"   // Tinkoff
     };
 
     EXPECT_NO_THROW({
