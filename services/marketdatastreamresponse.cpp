@@ -1,9 +1,26 @@
 #include "marketdatastreamresponse.h"
+#include <iostream>
 
 MarketDataStreamResponse::PayloadType MarketDataStreamResponse::detectPayloadType() const
 {
     // Check each possible payload type in the MarketDataResponse oneof field
-    // The order matters - check most common types first for performance
+    // The order matters - check subscription responses first (they come first)
+    
+    if (response_.has_subscribe_last_price_response()) {
+        return PayloadType::SUBSCRIBE_LAST_PRICE_RESPONSE;
+    }
+    
+    if (response_.has_subscribe_candles_response()) {
+        return PayloadType::SUBSCRIBE_CANDLES_RESPONSE;
+    }
+    
+    if (response_.has_subscribe_order_book_response()) {
+        return PayloadType::SUBSCRIBE_ORDER_BOOK_RESPONSE;
+    }
+    
+    if (response_.has_subscribe_trades_response()) {
+        return PayloadType::SUBSCRIBE_TRADES_RESPONSE;
+    }
     
     if (response_.has_trading_status()) {
         return PayloadType::TRADING_STATUS;
@@ -50,6 +67,14 @@ std::string MarketDataStreamResponse::payloadTypeToString(MarketDataStreamRespon
             return "TRADING_STATUS";
         case PayloadType::SUBSCRIBE_INFO_RESPONSE:
             return "SUBSCRIBE_INFO_RESPONSE";
+        case PayloadType::SUBSCRIBE_LAST_PRICE_RESPONSE:
+            return "SUBSCRIBE_LAST_PRICE_RESPONSE";
+        case PayloadType::SUBSCRIBE_CANDLES_RESPONSE:
+            return "SUBSCRIBE_CANDLES_RESPONSE";
+        case PayloadType::SUBSCRIBE_ORDER_BOOK_RESPONSE:
+            return "SUBSCRIBE_ORDER_BOOK_RESPONSE";
+        case PayloadType::SUBSCRIBE_TRADES_RESPONSE:
+            return "SUBSCRIBE_TRADES_RESPONSE";
         case PayloadType::CANDLE:
             return "CANDLE";
         case PayloadType::ORDERBOOK:

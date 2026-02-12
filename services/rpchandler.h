@@ -2,6 +2,7 @@
 #define RPCHANDLER_H
 
 #include <queue>
+#include <atomic>
 #include <grpcpp/grpcpp.h>
 #include "marketdata.grpc.pb.h"
 #include "orders.grpc.pb.h"
@@ -27,7 +28,8 @@ class RpcHandler {
         enum class Type {
             start_done,
             read_done,
-            write_done
+            write_done,
+            finish_done
         };
 
         RpcHandler *handler;
@@ -39,10 +41,12 @@ class RpcHandler {
         TagSet(RpcHandler *self)
             : start_done {self, TagData::Type::start_done},
               read_done {self, TagData::Type::read_done},
-              write_done {self, TagData::Type::write_done} {}
+              write_done {self, TagData::Type::write_done},
+              finish_done {self, TagData::Type::finish_done} {}
         TagData start_done;
         TagData read_done;
         TagData write_done;
+        TagData finish_done;
     };
 
 public:
@@ -56,9 +60,33 @@ public:
     virtual void on_ready() = 0;
     virtual void on_recv() = 0;
     virtual void on_write_done() = 0;
+    virtual void on_finish() = 0;
 
     static void handlingThread(CompletionQueue *cq);
 
+protected:
+    // Stream state enum for lifecycle tracking
+    enum class StreamState {
+        kDisconnected = 0,
+        kConnecting = 1,
+        kConnected = 2,
+        kReceiving = 3,
+        kClosing = 4,
+        kClosed = 5
+    };
+
+    // Get human-readable state name for logging
+    static const char* stateToString(StreamState state) {
+        switch (state) {
+            case StreamState::kDisconnected: return "DISCONNECTED";
+            case StreamState::kConnecting: return "CONNECTING";
+            case StreamState::kConnected: return "CONNECTED";
+            case StreamState::kReceiving: return "RECEIVING";
+            case StreamState::kClosing: return "CLOSING";
+            case StreamState::kClosed: return "CLOSED";
+            default: return "UNKNOWN";
+        }
+    }
 };
 
 /*!
@@ -76,16 +104,31 @@ public:
 
     void send(const MarketDataRequest &msg);
 
+    // State accessors for external monitoring
+    StreamState getStreamState() const { return stream_state_.load(std::memory_order_acquire); }
+    uint64_t getMessageCount() const { return message_count_.load(std::memory_order_relaxed); }
+    bool isConnected() const { return stream_state_.load(std::memory_order_acquire) >= StreamState::kConnected; }
+    bool isReceiving() const { return stream_state_.load(std::memory_order_acquire) == StreamState::kReceiving; }
+
 private:
     void on_ready() override;
     void on_recv() override;
     void on_write_done() override;
+    void on_finish() override;
+
+    // Internal state transition method
+    bool transitionState(StreamState newState);
+
+    // Validate that the incoming message contains valid data
+    bool hasValidPayload() const;
 
     responder_ptr responder_;
     MarketDataResponse incoming_;
 
-    bool sending_ = false;
-    bool ready_ = false;
+    std::atomic<StreamState> stream_state_{StreamState::kDisconnected};
+    std::atomic<uint64_t> message_count_{0};
+    std::atomic<bool> sending_{false};
+    std::atomic<bool> ready_{false};
     std::queue<MarketDataRequest> queued_msgs_;
     CallbackFunc callback_;
 
@@ -104,17 +147,32 @@ public:
     OrdersHandler(CompletionQueue &cq_, std::unique_ptr<OrdersStreamService::Stub> &stub_, const std::string &token, TradesStreamRequest &request, CallbackFunc callback);
     ~OrdersHandler();
 
+    // State accessors for external monitoring
+    StreamState getStreamState() const { return stream_state_.load(std::memory_order_acquire); }
+    uint64_t getMessageCount() const { return message_count_.load(std::memory_order_relaxed); }
+    bool isConnected() const { return stream_state_.load(std::memory_order_acquire) >= StreamState::kConnected; }
+    bool isReceiving() const { return stream_state_.load(std::memory_order_acquire) == StreamState::kReceiving; }
+
 private:
     void on_ready() override;
     void on_recv() override;
     void on_write_done() override;
+    void on_finish() override;
+
+    // Internal state transition method
+    bool transitionState(StreamState newState);
+
+    // Validate that the incoming message contains valid data
+    bool hasValidPayload() const;
 
     responder_ptr responder_;
     TradesStreamResponse incoming_;
 
-    std::queue<TradesStreamRequest> queued_msgs_;
+    std::atomic<StreamState> stream_state_{StreamState::kDisconnected};
+    std::atomic<uint64_t> message_count_{0};
     CallbackFunc callback_;
 
 };
 
 #endif // RPCHANDLER_H
+

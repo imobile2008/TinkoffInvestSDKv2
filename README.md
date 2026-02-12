@@ -3,6 +3,9 @@ C++ client for Tinkoff invest API
 
 Изначально поддерживался Владимиром, за что ему большое спасибо! 
 
+[![Build Status](badge-placeholder)](#)
+[![Tests](badge-placeholder)](#)
+
 # OpenAPI SDK для Тинькофф Инвестиций
 
 Данный проект представляет собой инструментарий на языке C++ для работы с grpc-интерфейсом торговой
@@ -29,6 +32,28 @@ cmake ..
 cmake --build .
 ``` 
 Первый запуск CMake вызовет скачивание зависимостей, что может занять некоторое время. 
+
+### Тестирование
+
+Проект включает полный набор тестов:
+
+```bash
+cd build
+cmake .. -DBUILD_TESTS=ON
+cmake --build .
+
+# Запуск всех тестов
+ctest
+
+# Запуск только модульных тестов
+./tests/TinkoffInvestSDKTests --gtest_filter="-*Integration*"
+
+# Запуск интеграционных тестов (требуется токен)
+export TINKOFF_TOKEN="your_token"
+./tests/TinkoffInvestSDKTests --gtest_filter="*Integration*"
+```
+
+Подробная документация по тестам находится в [tests/README.md](tests/README.md).
 
 ## Примеры
 

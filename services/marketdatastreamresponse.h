@@ -34,6 +34,10 @@ public:
         UNKNOWN,           ///< Unidentified or no payload
         TRADING_STATUS,    ///< TradingStatus message
         SUBSCRIBE_INFO_RESPONSE, ///< SubscribeInfoResponse message
+        SUBSCRIBE_LAST_PRICE_RESPONSE, ///< SubscribeLastPriceResponse message
+        SUBSCRIBE_CANDLES_RESPONSE, ///< SubscribeCandlesResponse message
+        SUBSCRIBE_ORDER_BOOK_RESPONSE, ///< SubscribeOrderBookResponse message
+        SUBSCRIBE_TRADES_RESPONSE, ///< SubscribeTradesResponse message
         CANDLE,            ///< Candle message
         ORDERBOOK,         ///< OrderBook message
         TRADE,             ///< Trade message  
@@ -125,6 +129,46 @@ public:
         \return Reference to the underlying MarketDataResponse
     */
     MarketDataResponse& getMutableRawResponse() { return response_; }
+
+    /*!
+        \brief Get SubscribeLastPriceResponse payload (type-safe accessor)
+        \return Const reference to SubscribeLastPriceResponse message
+        \throws std::runtime_error if payload type is not SUBSCRIBE_LAST_PRICE_RESPONSE
+    */
+    const SubscribeLastPriceResponse& getSubscribeLastPriceResponse() const {
+        validatePayloadType(PayloadType::SUBSCRIBE_LAST_PRICE_RESPONSE);
+        return response_.subscribe_last_price_response();
+    }
+
+    /*!
+        \brief Get SubscribeCandlesResponse payload (type-safe accessor)
+        \return Const reference to SubscribeCandlesResponse message
+        \throws std::runtime_error if payload type is not SUBSCRIBE_CANDLES_RESPONSE
+    */
+    const SubscribeCandlesResponse& getSubscribeCandlesResponse() const {
+        validatePayloadType(PayloadType::SUBSCRIBE_CANDLES_RESPONSE);
+        return response_.subscribe_candles_response();
+    }
+
+    /*!
+        \brief Get SubscribeOrderBookResponse payload (type-safe accessor)
+        \return Const reference to SubscribeOrderBookResponse message
+        \throws std::runtime_error if payload type is not SUBSCRIBE_ORDER_BOOK_RESPONSE
+    */
+    const SubscribeOrderBookResponse& getSubscribeOrderBookResponse() const {
+        validatePayloadType(PayloadType::SUBSCRIBE_ORDER_BOOK_RESPONSE);
+        return response_.subscribe_order_book_response();
+    }
+
+    /*!
+        \brief Get SubscribeTradesResponse payload (type-safe accessor)
+        \return Const reference to SubscribeTradesResponse message
+        \throws std::runtime_error if payload type is not SUBSCRIBE_TRADES_RESPONSE
+    */
+    const SubscribeTradesResponse& getSubscribeTradesResponse() const {
+        validatePayloadType(PayloadType::SUBSCRIBE_TRADES_RESPONSE);
+        return response_.subscribe_trades_response();
+    }
 
     /*!
         \brief Get TradingStatus payload (type-safe accessor)
