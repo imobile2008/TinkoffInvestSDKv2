@@ -17,9 +17,15 @@ ServiceReply::ServiceReply(const std::shared_ptr<google::protobuf::Message>  pro
 }
 
 ServiceReply::ServiceReply(const MarketDataStreamResponse& streamResponse, const Status& status)
-    : m_replyPtr(nullptr), m_status(status), m_errorMessage(""), m_streamResponse(std::make_shared<MarketDataStreamResponse>(streamResponse))
+    : m_replyPtr(nullptr), 
+      m_status(status), 
+      m_errorMessage(""), 
+      m_streamResponse(std::make_shared<MarketDataStreamResponse>(streamResponse))
 {
-
+    // Ensure proper initialization - throw if allocation failed
+    if (!m_streamResponse) {
+        throw std::runtime_error("Failed to create MarketDataStreamResponse");
+    }
 }
 
 const std::string ServiceReply::accountID(const int i)

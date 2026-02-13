@@ -8,6 +8,7 @@ This directory contains comprehensive tests for the Tinkoff Invest SDK.
 |------|-------------|
 | `test_api_integration.cpp` | Unit tests for all API services with mocked responses |
 | `test_streaming.cpp` | Tests for streaming services (MarketDataStream, OrdersStream) |
+| `test_streaming_last_price.cpp` | **Last price streaming tests - subscribe to 5 instruments for 1 minute** |
 | `test_integration_real.cpp` | Real API integration tests (requires valid token) |
 
 ## Test Coverage
@@ -65,6 +66,15 @@ These tests make actual API calls to Tinkoff Invest API:
    vcpkg install gtest
    ```
 
+3. **Configure API Token** (required for streaming tests):
+   See [API_TOKEN_SETUP.md](API_TOKEN_SETUP.md) for detailed instructions.
+   
+   Quick setup:
+   ```bash
+   cp .test_token.txt.template .test_token.txt
+   # Edit .test_token.txt and add your token
+   ```
+
 ## Building Tests
 
 ```bash
@@ -103,7 +113,16 @@ export TINKOFF_TOKEN="your_token_here"
 
 | Variable | Required For | Description |
 |----------|--------------|-------------|
-| `TINKOFF_TOKEN` | Integration tests | Your Tinkoff Invest API token |
+| `TINKOFF_TOKEN` | Integration tests | Your Tinkoff Invest API token (alternative to file) |
+
+## API Token Configuration
+
+For streaming tests, you can provide your API token either via:
+
+1. **Token file** (`.test_token.txt`) - See [API_TOKEN_SETUP.md](API_TOKEN_SETUP.md)
+2. **Environment variable** (`TINKOFF_TOKEN`)
+
+The token file takes precedence over the environment variable.
 
 ## Getting a Tinkoff Invest API Token
 

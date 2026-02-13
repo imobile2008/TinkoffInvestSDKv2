@@ -25,7 +25,7 @@ using namespace tinkoff::public_::invest::api::contract::v1;
 
 const std::string TEST_TOKEN = "test_token";
 const std::string TEST_HOST = "localhost:50051";
-const std::string TEST_FIGI = "BBG000B9XRY4";
+const std::string TEST_FIGI = "BBG004S68104";  // Sberbank
 const std::string TEST_INSTRUMENT_ID = "TCS-001S-FF";
 
 // ============================================================================
@@ -265,7 +265,7 @@ protected:
     }
 
     std::shared_ptr<MarketDataStream> stream;
-    const std::string TEST_FIGI_LEGACY = "BBG000B9XRY4";
+    const std::string TEST_FIGI_LEGACY = "BBG004S68104";  // Sberbank
 };
 
 TEST_F(MarketDataStreamFigiOldTest, SubscribeCandlesFigiOld) {
@@ -486,7 +486,7 @@ protected:
 
     std::shared_ptr<MarketDataStream> stream;
     const std::string TEST_INSTRUMENT_ID = "TCS-001S-FF";
-    const std::string TEST_FIGI = "BBG000B9XRY4";
+    const std::string TEST_FIGI = "BBG004S68104";  // Sberbank
 };
 
 TEST_F(MarketDataStreamApiComparisonTest, BothApisCompileAndRun) {

@@ -1,5 +1,6 @@
 #include "marketdatastreamresponse.h"
 #include <iostream>
+#include <sstream>
 
 MarketDataStreamResponse::PayloadType MarketDataStreamResponse::detectPayloadType() const
 {
@@ -50,11 +51,21 @@ MarketDataStreamResponse::PayloadType MarketDataStreamResponse::detectPayloadTyp
         return PayloadType::PING;
     }
     
+    // Log warning for unknown payload type - this helps diagnose "Invalid argument" errors
+    std::ostringstream oss;
+    oss << "[MarketDataStreamResponse] Warning: Unknown payload type detected. ";
+    oss << "Debug string: " << response_.DebugString().substr(0, 200);
+    std::cerr << oss.str() << std::endl;
+    
     return PayloadType::UNKNOWN;
 }
 
 std::string MarketDataStreamResponse::getPayloadTypeString() const
 {
+    // Ensure payload type is valid before converting
+    if (payload_type_ == PayloadType::UNKNOWN) {
+        return "UNKNOWN";
+    }
     return payloadTypeToString(payload_type_);
 }
 

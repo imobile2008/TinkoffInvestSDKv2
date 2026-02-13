@@ -124,15 +124,29 @@ void MarketDataStream::close()
 {
     std::cout << "[MarketDataStream] close() called" << std::endl;
     
-    if (m_running.exchange(false)) {
+    // First, signal the streaming to stop to prevent new callbacks
+    bool expected = true;
+    if (m_running.compare_exchange_strong(expected, false)) {
+        // Cancel the gRPC context to interrupt any blocking reads
+        if (m_context) {
+            m_context->TryCancel();
+        }
+        
+        // Wait for the stream thread to finish
         if (m_streamThread.joinable()) {
             m_streamThread.join();
         }
     }
     
-    m_stream.reset();
+    // Clean up stream resources
+    if (m_stream) {
+        m_stream->WritesDone();
+        m_stream.reset();
+    }
+    
     m_context.reset();
     transitionState(kClosed);
+    std::cout << "[MarketDataStream] close() completed" << std::endl;
 }
 
 bool MarketDataStream::isConnected() const
@@ -179,15 +193,25 @@ void MarketDataStream::streamLoop(const MarketDataRequest& request, CallbackFunc
     // Read responses in a loop
     MarketDataResponse response;
     while (m_stream->Read(&response)) {
-        m_messageCount.fetch_add(1);
-        std::cout << "[MarketDataStream] Received message #" << m_messageCount.load() << std::endl;
-        
-        // Create the response wrapper with automatic payload type detection
-        MarketDataStreamResponse streamResponse(response);
-        
-        // Invoke callback
-        if (callback) {
-            callback(ServiceReply(streamResponse, grpc::Status()));
+        try {
+            m_messageCount.fetch_add(1);
+            std::cout << "[MarketDataStream] Received message #" << m_messageCount.load() << std::endl;
+            
+            // Create the response wrapper with automatic payload type detection
+            MarketDataStreamResponse streamResponse(response);
+            
+            // Log the detected payload type for debugging
+            std::cout << "[MarketDataStream] Stream response type: " 
+                      << streamResponse.getPayloadTypeString() << std::endl;
+            
+            // Invoke callback with the properly constructed ServiceReply
+            if (callback) {
+                callback(ServiceReply(streamResponse, grpc::Status()));
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataStream] Error processing response: " << e.what() << std::endl;
+        } catch (...) {
+            std::cerr << "[MarketDataStream] Unknown error processing response" << std::endl;
         }
     }
     
@@ -319,4 +343,120 @@ void MarketDataStream::UnSubscribeOrderBookAsync() { UnSubscribeOrderBook(); }
 void MarketDataStream::UnSubscribeTradesAsync() { UnSubscribeTrades(); }
 void MarketDataStream::UnSubscribeLastPriceAsync() { UnSubscribeLastPrice(); }
 void MarketDataStream::UnSubscribeInfoAsync() { UnSubscribeInfo(); }
+
+// ============================================================================
+// Combined Subscription Methods (Single Stream)
+// ============================================================================
+
+MarketDataRequest MarketDataStream::createCombinedRequest(
+    SubscriptionAction action,
+    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+    const std::vector<std::string>& orderBookInstruments,
+    int32_t orderBookDepth,
+    const std::vector<std::string>& tradesInstruments,
+    const std::vector<std::string>& infoInstruments,
+    const std::vector<std::string>& lastPriceInstruments)
+{
+    MarketDataRequest request;
+    
+    // Add candles subscription
+    if (!candleInstruments.empty()) {
+        auto* scr = request.mutable_subscribe_candles_request();
+        scr->set_subscription_action(action);
+        for (const auto& [instrumentId, interval] : candleInstruments) {
+            auto* instr = scr->add_instruments();
+            instr->set_instrument_id(instrumentId);
+            instr->set_interval(interval);
+        }
+    }
+    
+    // Add order book subscription
+    if (!orderBookInstruments.empty()) {
+        auto* sobr = request.mutable_subscribe_order_book_request();
+        sobr->set_subscription_action(action);
+        for (const auto& instrumentId : orderBookInstruments) {
+            auto* instr = sobr->add_instruments();
+            instr->set_instrument_id(instrumentId);
+            instr->set_depth(orderBookDepth);
+        }
+    }
+    
+    // Add trades subscription
+    if (!tradesInstruments.empty()) {
+        auto* str = request.mutable_subscribe_trades_request();
+        str->set_subscription_action(action);
+        for (const auto& instrumentId : tradesInstruments) {
+            auto* instr = str->add_instruments();
+            instr->set_instrument_id(instrumentId);
+        }
+    }
+    
+    // Add info subscription
+    if (!infoInstruments.empty()) {
+        auto* sir = request.mutable_subscribe_info_request();
+        sir->set_subscription_action(action);
+        for (const auto& instrumentId : infoInstruments) {
+            auto* instr = sir->add_instruments();
+            instr->set_instrument_id(instrumentId);
+        }
+    }
+    
+    // Add last price subscription
+    if (!lastPriceInstruments.empty()) {
+        auto* slpr = request.mutable_subscribe_last_price_request();
+        slpr->set_subscription_action(action);
+        for (const auto& instrumentId : lastPriceInstruments) {
+            auto* instr = slpr->add_instruments();
+            instr->set_instrument_id(instrumentId);
+        }
+    }
+    
+    return request;
+}
+
+void MarketDataStream::SubscribeAll(
+    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+    const std::vector<std::string>& orderBookInstruments,
+    int32_t orderBookDepth,
+    const std::vector<std::string>& tradesInstruments,
+    const std::vector<std::string>& infoInstruments,
+    const std::vector<std::string>& lastPriceInstruments,
+    CallbackFunc callback)
+{
+    m_running.store(true);
+    m_streamThread = std::thread([this, candleInstruments, orderBookInstruments, orderBookDepth, 
+                                   tradesInstruments, infoInstruments, lastPriceInstruments, callback]() mutable {
+        MarketDataRequest request = createCombinedRequest(
+            SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE,
+            candleInstruments, orderBookInstruments, orderBookDepth,
+            tradesInstruments, infoInstruments, lastPriceInstruments);
+        streamLoop<MarketDataRequest>(request, callback);
+    });
+}
+
+void MarketDataStream::SubscribeAllAsync(
+    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+    const std::vector<std::string>& orderBookInstruments,
+    int32_t orderBookDepth,
+    const std::vector<std::string>& tradesInstruments,
+    const std::vector<std::string>& infoInstruments,
+    const std::vector<std::string>& lastPriceInstruments,
+    CallbackFunc callback)
+{
+    SubscribeAll(candleInstruments, orderBookInstruments, orderBookDepth,
+                tradesInstruments, infoInstruments, lastPriceInstruments, callback);
+}
+
+void MarketDataStream::UnSubscribeAll()
+{
+    MarketDataRequest request = createCombinedRequest(
+        SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE,
+        {}, {}, 0, {}, {}, {});
+    if (m_stream) m_stream->Write(request);
+}
+
+void MarketDataStream::UnSubscribeAllAsync()
+{
+    UnSubscribeAll();
+}
 

@@ -187,9 +187,9 @@ TEST_F(SandboxIntegrationTest, PostAndGetSandboxOrder) {
     
     sandbox->SandboxPayIn(accountId, "USD", 10000, 0);
     
-    // Post an order (using a real instrument ID for a US stock)
+    // Post an order (using a real instrument ID for a Russian stock)
     auto orderReply = sandbox->PostSandboxOrder(
-        "BBG000B9XRY4",  // Apple Inc. FIGI
+        "BBG004S68104",  // Sberbank FIGI
         10,              // quantity
         15000,           // price units ($150.00)
         0,               // price nano
@@ -231,11 +231,11 @@ protected:
 TEST_F(MarketDataIntegrationTest, GetLastPricesSuccess) {
     ASSERT_NE(marketdata, nullptr);
     
-    // Get prices for common US stocks
+    // Get prices for Russian stocks
     std::vector<std::string> instruments = {
-        "BBG000B9XRY4",  // Apple
-        "BBG000BJP3S4",  // Microsoft
-        "BBG000BM8D53"   // Amazon
+        "BBG004S68104",  // Sberbank
+        "BBG004730JJ5",  // Moscow Exchange
+        "BBG004731354"   // Yandex
     };
     
     auto reply = marketdata->GetLastPrices(instruments);
@@ -252,7 +252,7 @@ TEST_F(MarketDataIntegrationTest, GetLastPricesSuccess) {
 TEST_F(MarketDataIntegrationTest, GetOrderBookSuccess) {
     ASSERT_NE(marketdata, nullptr);
     
-    auto reply = marketdata->GetOrderBook("BBG000B9XRY4", 10);
+    auto reply = marketdata->GetOrderBook("BBG004S68104", 10);
     
     ASSERT_TRUE(reply.GetStatus().ok()) << "Failed to get order book: "
         << reply.GetStatus().error_message();
@@ -268,7 +268,7 @@ TEST_F(MarketDataIntegrationTest, GetOrderBookSuccess) {
 TEST_F(MarketDataIntegrationTest, GetTradingStatusSuccess) {
     ASSERT_NE(marketdata, nullptr);
     
-    auto reply = marketdata->GetTradingStatus("BBG000B9XRY4");
+    auto reply = marketdata->GetTradingStatus("BBG004S68104");
     
     ASSERT_TRUE(reply.GetStatus().ok()) << "Failed to get trading status: "
         << reply.GetStatus().error_message();
@@ -290,7 +290,7 @@ TEST_F(MarketDataIntegrationTest, GetCandlesSuccess) {
     auto yesterday_ts = std::chrono::duration_cast<std::chrono::seconds>(yesterday.time_since_epoch()).count();
     
     auto reply = marketdata->GetCandles(
-        "BBG000B9XRY4",
+        "BBG004S68104",
         yesterday_ts, 0,
         now_ts, 0,
         CandleInterval::CANDLE_INTERVAL_HOUR
@@ -466,7 +466,7 @@ TEST_F(InstrumentsIntegrationTest, ShareByFigiSuccess) {
     auto reply = instruments->ShareBy(
         INSTRUMENT_ID_TYPE_FIGI,
         "",
-        "BBG000B9XRY4"  // Apple
+        "BBG004S68104"  // Sberbank
     );
     
     ASSERT_TRUE(reply.GetStatus().ok()) << "Failed to get share by FIGI: "
@@ -515,7 +515,7 @@ TEST_F(FullWorkflowIntegrationTest, CompleteTradingWorkflow) {
     ASSERT_FALSE(accountId.empty());
     
     // Step 3: Get current market data
-    auto pricesReply = marketdata->GetLastPrices({"BBG000B9XRY4"});
+    auto pricesReply = marketdata->GetLastPrices({"BBG004S68104"});
     ASSERT_TRUE(pricesReply.GetStatus().ok());
     
     // Step 4: Deposit funds

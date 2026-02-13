@@ -281,7 +281,7 @@ int main() {
         // Test 3: Get Last Prices
         std::cout << "\n--- Test 3: Get Last Prices ---" << std::endl;
         {
-            std::vector<std::string> instrumentsList = {"BBG000B9XRY4"}; // Apple
+            std::vector<std::string> instrumentsList = {"BBG004S68104"}; // Sberbank
             auto reply = marketdata->GetLastPrices(instrumentsList);
             if (reply.GetStatus().ok()) {
                 auto response = std::static_pointer_cast<GetLastPricesResponse>(reply.ptr());
@@ -301,7 +301,7 @@ int main() {
         // Test 4: Get Order Book
         std::cout << "\n--- Test 4: Get Order Book ---" << std::endl;
         {
-            auto reply = marketdata->GetOrderBook("BBG000B9XRY4", 10);
+            auto reply = marketdata->GetOrderBook("BBG004S68104", 10);
             if (reply.GetStatus().ok()) {
                 auto response = std::static_pointer_cast<GetOrderBookResponse>(reply.ptr());
                 if (response) {
@@ -325,7 +325,7 @@ int main() {
             auto now_ts = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
             auto yesterday_ts = std::chrono::duration_cast<std::chrono::seconds>(yesterday.time_since_epoch()).count();
             
-            auto reply = marketdata->GetCandles("BBG000B9XRY4", yesterday_ts, 0, now_ts, 0, CANDLE_INTERVAL_HOUR);
+            auto reply = marketdata->GetCandles("BBG004S68104", yesterday_ts, 0, now_ts, 0, CANDLE_INTERVAL_HOUR);
             if (reply.GetStatus().ok()) {
                 auto response = std::static_pointer_cast<GetCandlesResponse>(reply.ptr());
                 if (response) {
@@ -344,7 +344,7 @@ int main() {
         // Test 6: Get Trading Status
         std::cout << "\n--- Test 6: Get Trading Status ---" << std::endl;
         {
-            auto reply = marketdata->GetTradingStatus("BBG000B9XRY4");
+            auto reply = marketdata->GetTradingStatus("BBG004S68104");
             if (reply.GetStatus().ok()) {
                 printResult("GetTradingStatus", true, "Trading status retrieved");
                 passed++;

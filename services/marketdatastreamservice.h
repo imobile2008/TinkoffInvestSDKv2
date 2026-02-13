@@ -90,6 +90,51 @@ public:
     void SubscribeInfo(const std::vector<std::string> &instrumentIds, CallbackFunc callback);
     
     // =========================================================================
+    // Combined subscription methods (single stream for all types)
+    // =========================================================================
+    
+    /*!
+        \brief Subscribe to all market data types in a single stream
+        \param candleInstruments Vector of (instrument_id, interval) pairs for candles
+        \param orderBookInstruments Vector of instrument IDs for order book
+        \param orderBookDepth Order book depth
+        \param tradesInstruments Vector of instrument IDs for trades
+        \param infoInstruments Vector of instrument IDs for trading info
+        \param lastPriceInstruments Vector of instrument IDs for last price
+        \param callback Function to call for each response
+    */
+    void SubscribeAll(
+        const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+        const std::vector<std::string>& orderBookInstruments,
+        int32_t orderBookDepth,
+        const std::vector<std::string>& tradesInstruments,
+        const std::vector<std::string>& infoInstruments,
+        const std::vector<std::string>& lastPriceInstruments,
+        CallbackFunc callback);
+    
+    /*!
+        \brief Subscribe to all market data types asynchronously (run in background thread)
+    */
+    void SubscribeAllAsync(
+        const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+        const std::vector<std::string>& orderBookInstruments,
+        int32_t orderBookDepth,
+        const std::vector<std::string>& tradesInstruments,
+        const std::vector<std::string>& infoInstruments,
+        const std::vector<std::string>& lastPriceInstruments,
+        CallbackFunc callback);
+    
+    /*!
+        \brief Unsubscribe from all market data types
+    */
+    void UnSubscribeAll();
+    
+    /*!
+        \brief Unsubscribe from all market data types asynchronously
+    */
+    void UnSubscribeAllAsync();
+    
+    // =========================================================================
     // Async methods (run in background thread)
     // =========================================================================
     
@@ -144,6 +189,14 @@ private:
     MarketDataRequest createTradesRequest(SubscriptionAction action, const std::vector<std::string>& instrumentIds);
     MarketDataRequest createInfoRequest(SubscriptionAction action, const std::vector<std::string>& instrumentIds);
     MarketDataRequest createLastPriceRequest(SubscriptionAction action, const std::vector<std::string>& instrumentIds);
+    MarketDataRequest createCombinedRequest(
+        SubscriptionAction action,
+        const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+        const std::vector<std::string>& orderBookInstruments,
+        int32_t orderBookDepth,
+        const std::vector<std::string>& tradesInstruments,
+        const std::vector<std::string>& infoInstruments,
+        const std::vector<std::string>& lastPriceInstruments);
     
     // Internal streaming implementation
     template<typename RequestType>

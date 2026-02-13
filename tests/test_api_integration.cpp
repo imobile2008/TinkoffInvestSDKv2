@@ -32,7 +32,7 @@ using namespace tinkoff::public_::invest::api::contract::v1;
 const std::string TEST_TOKEN = "test_token";
 const std::string TEST_HOST = "localhost:50051";
 const std::string TEST_ACCOUNT_ID = "test_account_id";
-const std::string TEST_FIGI = "BBG000B9XRY4";
+const std::string TEST_FIGI = "BBG004S68104";  // Sberbank
 const std::string TEST_INSTRUMENT_ID = "TCS-001";
 
 // ============================================================================

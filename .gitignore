@@ -13,3 +13,7 @@ _deps
 *.swp
 setenv.sh
 build
+
+# API Token files (contains sensitive credentials)
+.test_token.txt
+*.token

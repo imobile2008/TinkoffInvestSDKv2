@@ -15,8 +15,8 @@ int main()
     auto marketdata = std::dynamic_pointer_cast<MarketDataStream>(client.service("marketdatastream"));
     auto orders = std::dynamic_pointer_cast<OrdersStream>(client.service("ordersstream"));
 
-    //subscribe to British American Tobacco and Visa Inc. prices
-    marketdata->SubscribeLastPriceAsync({"BBG000BWPXQ8", "BBG00844BD08"}, marketStreamCallBack);
+    //subscribe to Sberbank and Tinkoff prices
+    marketdata->SubscribeLastPriceAsync({"BBG004S68104", "BBG00JXPFBN0"}, marketStreamCallBack);
 
     //subscribe to Bashneft (BANE) and Moscow Exchange (MOEX) shares transactions
     marketdata->SubscribeTradesAsync({"BBG004S68758", "BBG004730JJ5"}, marketStreamCallBack);

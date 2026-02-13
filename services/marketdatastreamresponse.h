@@ -241,6 +241,14 @@ public:
     }
 
     /*!
+        \brief Check if this is a LastPrice payload
+        \return true if the payload type is LAST_PRICE
+    */
+    bool hasLastPrice() const {
+        return payload_type_ == PayloadType::LAST_PRICE;
+    }
+
+    /*!
         \brief Get the tracking_id from SubscribeInfoResponse
         \return String containing the tracking ID, empty if not available
     */
@@ -257,6 +265,63 @@ public:
     */
     bool isSubscriptionConfirmation() const {
         return isPayloadType(PayloadType::SUBSCRIBE_INFO_RESPONSE);
+    }
+
+    /*!
+        \brief Check if this is any subscription response (candles, trades, orderbook, lastprice, info)
+        \return true if this is any type of subscription response
+    */
+    bool isSubscriptionResponse() const {
+        return isPayloadType(PayloadType::SUBSCRIBE_INFO_RESPONSE) ||
+               isPayloadType(PayloadType::SUBSCRIBE_CANDLES_RESPONSE) ||
+               isPayloadType(PayloadType::SUBSCRIBE_TRADES_RESPONSE) ||
+               isPayloadType(PayloadType::SUBSCRIBE_ORDER_BOOK_RESPONSE) ||
+               isPayloadType(PayloadType::SUBSCRIBE_LAST_PRICE_RESPONSE);
+    }
+
+    /*!
+        \brief Get the subscription status from SubscribeInfoResponse
+        \return The subscription status, or empty string if not available
+    */
+    std::string getSubscriptionStatus() const {
+        if (isPayloadType(PayloadType::SUBSCRIBE_INFO_RESPONSE)) {
+            // SubscribeInfoResponse contains tracking_id, status is in the subscription status field
+            // For now, we return the tracking_id as confirmation indicator
+            return response_.subscribe_info_response().tracking_id();
+        }
+        return "";
+    }
+
+    /*!
+        \brief Check if this is a SubscribeCandlesResponse
+        \return true if payload type is SUBSCRIBE_CANDLES_RESPONSE
+    */
+    bool isSubscribeCandlesResponse() const {
+        return isPayloadType(PayloadType::SUBSCRIBE_CANDLES_RESPONSE);
+    }
+
+    /*!
+        \brief Check if this is a SubscribeTradesResponse
+        \return true if payload type is SUBSCRIBE_TRADES_RESPONSE
+    */
+    bool isSubscribeTradesResponse() const {
+        return isPayloadType(PayloadType::SUBSCRIBE_TRADES_RESPONSE);
+    }
+
+    /*!
+        \brief Check if this is a SubscribeOrderBookResponse
+        \return true if payload type is SUBSCRIBE_ORDER_BOOK_RESPONSE
+    */
+    bool isSubscribeOrderBookResponse() const {
+        return isPayloadType(PayloadType::SUBSCRIBE_ORDER_BOOK_RESPONSE);
+    }
+
+    /*!
+        \brief Check if this is a SubscribeLastPriceResponse
+        \return true if payload type is SUBSCRIBE_LAST_PRICE_RESPONSE
+    */
+    bool isSubscribeLastPriceResponse() const {
+        return isPayloadType(PayloadType::SUBSCRIBE_LAST_PRICE_RESPONSE);
     }
 
     /*!
@@ -312,3 +377,4 @@ private:
 using MarketDataStreamCallback = std::function<void(MarketDataStreamResponse)>;
 
 #endif // MARKETDATASTREAMRESPONSE_H
+

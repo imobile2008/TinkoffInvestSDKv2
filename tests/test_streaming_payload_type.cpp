@@ -99,7 +99,7 @@ protected:
     // Create a mock MarketDataResponse for testing type safety
     MarketDataResponse createTradingStatusResponse() {
         MarketDataResponse response;
-        response.mutable_trading_status()->set_figi("BBG000B9XRY4");
+        response.mutable_trading_status()->set_figi("BBG004S68104");  // Sberbank
         response.mutable_trading_status()->set_trading_status(SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING);
         return response;
     }
@@ -136,7 +136,7 @@ TEST_F(MarketDataStreamResponseTypeSafetyTest, TradingStatusTypeSafeAccessor) {
     
     EXPECT_NO_THROW({
         const auto& tradingStatus = response.getTradingStatus();
-        EXPECT_EQ(tradingStatus.figi(), "BBG000B9XRY4");
+        EXPECT_EQ(tradingStatus.figi(), "BBG004S68104");  // Sberbank
         EXPECT_EQ(tradingStatus.trading_status(), SecurityTradingStatus::SECURITY_TRADING_STATUS_NORMAL_TRADING);
     });
 }
@@ -152,6 +152,41 @@ TEST_F(MarketDataStreamResponseTypeSafetyTest, SubscribeInfoTypeSafeAccessor) {
     });
 }
 
+TEST_F(MarketDataStreamResponseTypeSafetyTest, LastPricePayloadDetection) {
+    MarketDataResponse rawResponse;
+    rawResponse.mutable_last_price()->set_figi("BBG004S68104");  // Sberbank
+    
+    MarketDataStreamResponse response(rawResponse);
+    
+    EXPECT_EQ(response.getPayloadType(), MarketDataStreamResponse::PayloadType::LAST_PRICE);
+    EXPECT_TRUE(response.isPayloadType(MarketDataStreamResponse::PayloadType::LAST_PRICE));
+    EXPECT_FALSE(response.isPayloadType(MarketDataStreamResponse::PayloadType::TRADE));
+    EXPECT_TRUE(response.hasLastPrice());
+}
+
+TEST_F(MarketDataStreamResponseTypeSafetyTest, LastPriceTypeSafeAccessor) {
+    MarketDataResponse rawResponse;
+    rawResponse.mutable_last_price()->set_figi("BBG004S68104");  // Sberbank
+    
+    MarketDataStreamResponse response(rawResponse);
+    
+    EXPECT_NO_THROW({
+        const auto& lastPrice = response.getLastPrice();
+        EXPECT_EQ(lastPrice.figi(), "BBG004S68104");
+    });
+}
+
+TEST_F(MarketDataStreamResponseTypeSafetyTest, LastPriceWrongTypeAccessorThrows) {
+    MarketDataResponse rawResponse;
+    rawResponse.mutable_last_price()->set_figi("BBG004S68104");
+    
+    MarketDataStreamResponse response(rawResponse);
+    
+    EXPECT_THROW(response.getTradingStatus(), std::runtime_error);
+    EXPECT_THROW(response.getSubscribeInfoResponse(), std::runtime_error);
+    EXPECT_THROW(response.getCandle(), std::runtime_error);
+}
+
 TEST_F(MarketDataStreamResponseTypeSafetyTest, WrongTypeAccessorThrows) {
     auto tradingStatusResponse = createTradingStatusResponse();
     MarketDataStreamResponse response(tradingStatusResponse);
@@ -159,6 +194,7 @@ TEST_F(MarketDataStreamResponseTypeSafetyTest, WrongTypeAccessorThrows) {
     EXPECT_THROW(response.getSubscribeInfoResponse(), std::runtime_error);
     EXPECT_THROW(response.getCandle(), std::runtime_error);
     EXPECT_THROW(response.getOrderBook(), std::runtime_error);
+    EXPECT_THROW(response.getLastPrice(), std::runtime_error);
 }
 
 TEST_F(MarketDataStreamResponseTypeSafetyTest, IsSubscriptionConfirmation) {
@@ -236,7 +272,7 @@ class MarketDataStreamResponseCopyMoveTest : public ::testing::Test {
 protected:
     MarketDataResponse createTradingStatusResponse() {
         MarketDataResponse response;
-        response.mutable_trading_status()->set_figi("BBG000B9XRY4");
+        response.mutable_trading_status()->set_figi("BBG004S68104");  // Sberbank
         return response;
     }
 };
