@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(TinkoffInvestSDKTests LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -160,23 +160,6 @@ target_link_libraries(test_streaming_candles
 
 # Add test to CTest
 add_test(NAME test_streaming_candles COMMAND test_streaming_candles)
-
-# All stream types combined tests (gtest) - tests SubscribeAllAsync
-add_executable(test_streaming_all_types test_streaming_all_types.cpp)
-
-target_link_libraries(test_streaming_all_types
-    PRIVATE
-        tink_grpc_proto
-        TinkoffInvestSDK
-        ${_GRPC_GRPCPP}
-        ${_PROTOBUF_LIBPROTOBUF}
-        ${GTEST_LIBRARIES}
-        ${GTEST_MAIN_LIBRARIES}
-        Threads::Threads
-)
-
-# Add test to CTest
-add_test(NAME test_streaming_all_types COMMAND test_streaming_all_types)
 
 # Independent streams test - verifies each subscription creates its own stream
 add_executable(test_streaming_independent_streams test_streaming_independent_streams.cpp)

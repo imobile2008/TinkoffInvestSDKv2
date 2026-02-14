@@ -98,7 +98,7 @@ int main()
 
     //subscribe to Sberbank and Moscow Exchange prices and start streaming
     std::thread th1(
-                [marketdata](){marketdata->SubscribeLastPrice({"BBG004S68104", "BBG004730JJ5"}, marketStreamCallBack);}
+                [marketdata](){marketdata->SubscribeLastPriceAsync({"BBG004S68104", "BBG004730JJ5"}, marketStreamCallBack);}
     );
 
     //subscribe to Bashneft (BANE) and Moscow Exchange (MOEX) shares transactions

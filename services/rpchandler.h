@@ -3,6 +3,7 @@
 
 #include <queue>
 #include <atomic>
+#include <functional>
 #include <grpcpp/grpcpp.h>
 #include "marketdata.grpc.pb.h"
 #include "orders.grpc.pb.h"
@@ -147,11 +148,17 @@ public:
     OrdersHandler(CompletionQueue &cq_, std::unique_ptr<OrdersStreamService::Stub> &stub_, const std::string &token, TradesStreamRequest &request, CallbackFunc callback);
     ~OrdersHandler();
 
+    // Set a callback to be called when stream finishes
+    void setFinishCallback(std::function<void()> callback) { finishCallback_ = callback; }
+
     // State accessors for external monitoring
     StreamState getStreamState() const { return stream_state_.load(std::memory_order_acquire); }
     uint64_t getMessageCount() const { return message_count_.load(std::memory_order_relaxed); }
     bool isConnected() const { return stream_state_.load(std::memory_order_acquire) >= StreamState::kConnected; }
     bool isReceiving() const { return stream_state_.load(std::memory_order_acquire) == StreamState::kReceiving; }
+    
+    // Cancel the ongoing operation
+    void cancel() { context.TryCancel(); }
 
 private:
     void on_ready() override;
@@ -171,6 +178,7 @@ private:
     std::atomic<StreamState> stream_state_{StreamState::kDisconnected};
     std::atomic<uint64_t> message_count_{0};
     CallbackFunc callback_;
+    std::function<void()> finishCallback_;
 
 };
 

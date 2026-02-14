@@ -453,5 +453,10 @@ void OrdersHandler::on_finish()
 {
     RPCHANDLER_LOG("OrdersHandler::on_finish called, transitioning to CLOSED");
     transitionState(StreamState::kClosed);
+    
+    // Call the finish callback if set
+    if (finishCallback_) {
+        finishCallback_();
+    }
 }
 

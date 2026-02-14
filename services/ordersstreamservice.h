@@ -3,10 +3,13 @@
 
 #include <thread>
 #include <set>
+#include <atomic>
+#include <memory>
 #include <grpcpp/grpcpp.h>
 #include "customservice.h"
 #include "orders.grpc.pb.h"
 #include "commontypes.h"
+#include "marketdatastreamcoroutine.h"
 
 using grpc::ClientAsyncReader;
 using grpc::Channel;
@@ -29,13 +32,27 @@ public:
     void TradesStream(const Strings &accounts, CallbackFunc callback);
     /// Поток сделок пользователя, асинхронный вызов
     void TradesStreamAsync(const Strings &accounts, CallbackFunc callback);
-    /// Обработчик асинхронных вызовов
-
+    /// Закрыть поток
+    void close();
+    
+    // =========================================================================
+    // Coroutine-based subscription methods (C++20)
+    // =========================================================================
+    
+    /*!
+        \brief Subscribe to trades stream using C++20 coroutines
+        \param accounts Vector of account IDs
+        \return MarketDataStreamGenerator that yields TradesStreamResponse
+    */
+    MarketDataStreamGenerator<TradesStreamResponse> TradesStreamCoroutine(const Strings &accounts);
+    
 private:
-    std::set<std::shared_ptr<OrdersHandler>> m_currentHandlers;
+    void onStreamFinished();
+    
+    std::atomic<bool> m_running;
+    std::thread m_streamThread;
+    std::unique_ptr<grpc::ClientContext> m_context;
     std::unique_ptr<OrdersStreamService::Stub> m_ordersStreamService;
-//    std::unique_ptr<std::thread> m_grpcThread;
-//    CompletionQueue m_cq;
 
 };
 

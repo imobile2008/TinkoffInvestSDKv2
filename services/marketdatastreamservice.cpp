@@ -24,8 +24,8 @@ MarketDataStream::~MarketDataStream()
 {
     std::cout << "[MarketDataStream] Destructor called" << std::endl;
     close();
-    if (m_grpcThread) {
-        m_grpcThread->join();
+    if (m_streamThread.joinable()) {
+        m_streamThread.join();
     }
 }
 
@@ -160,418 +160,377 @@ uint64_t MarketDataStream::getMessageCount() const
 }
 
 // ============================================================================
-// Template implementation for streaming loop
+// C++20 Coroutine-based Streaming Methods
 // ============================================================================
 
-template<typename RequestType>
-void MarketDataStream::streamLoop(const MarketDataRequest& request, CallbackFunc callback)
+// These methods use StreamChannel for thread-safe communication between
+// the background streaming thread and the coroutine consumer.
+
+MarketDataStreamGenerator<MarketDataStreamResponse> MarketDataStream::SubscribeCandlesCoroutine(
+    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments)
 {
-    std::cout << "[MarketDataStream] streamLoop started" << std::endl;
-    
-    // Transition to connecting state
-    if (!transitionState(kConnecting)) {
-        return;
-    }
-    
-    // Create stream context
-    m_context = std::make_unique<grpc::ClientContext>();
-    addAuthMetadata(*m_context);
-    
-    // Create bidirectional stream
-    m_stream = m_stub->MarketDataStream(m_context.get());
-    
-    if (!transitionState(kConnected)) {
-        return;
-    }
-    
-    // Write subscription request
-    m_stream->Write(request);
-    
-    // Transition to streaming state
-    transitionState(kStreaming);
-    
-    // Read responses in a loop
-    MarketDataResponse response;
-    while (m_stream->Read(&response)) {
-        try {
-            m_messageCount.fetch_add(1);
-            std::cout << "[MarketDataStream] Received message #" << m_messageCount.load() << std::endl;
-            
-            // Create the response wrapper with automatic payload type detection
-            MarketDataStreamResponse streamResponse(response);
-            
-            // Log the detected payload type for debugging
-            std::cout << "[MarketDataStream] Stream response type: " 
-                      << streamResponse.getPayloadTypeString() << std::endl;
-            
-            // Invoke callback with the properly constructed ServiceReply
-            if (callback) {
-                callback(ServiceReply(streamResponse, grpc::Status()));
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] Error processing response: " << e.what() << std::endl;
-        } catch (...) {
-            std::cerr << "[MarketDataStream] Unknown error processing response" << std::endl;
-        }
-    }
-    
-    // Read finished, clean up
-    grpc::Status status = m_stream->Finish();
-    std::cout << "[MarketDataStream] Stream finished, status: " << status.ok() << std::endl;
-    
-    transitionState(kClosed);
-}
-
-// ============================================================================
-// Async Subscription Methods
-// ============================================================================
-
-void MarketDataStream::SubscribeCandles(const std::vector<std::pair<std::string, SubscriptionInterval>> &candleInstruments, CallbackFunc callback)
-{
-    // Validate input parameters to prevent crashes
+    // Validate input
     if (candleInstruments.empty()) {
-        std::cerr << "[MarketDataStream] SubscribeCandles: Error - candleInstruments is empty" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::INVALID_ARGUMENT, "candleInstruments cannot be empty")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeCandlesCoroutine: Error - candleInstruments is empty" << std::endl;
+        co_return;
     }
     
     // Prevent multiple concurrent subscriptions
     if (m_running.load()) {
-        std::cerr << "[MarketDataStream] SubscribeCandles: Error - stream already running" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::RESOURCE_EXHAUSTED, "Stream already running - close existing stream first")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeCandlesCoroutine: Error - stream already running" << std::endl;
+        co_return;
     }
+    
+    // Create channel for streaming data
+    auto channel = std::make_shared<StreamChannel<MarketDataStreamResponse>>();
     
     m_running.store(true);
-    m_streamThread = std::thread([this, candleInstruments, callback]() mutable {
+    
+    // Run streaming in background thread
+    m_streamThread = std::thread([this, candleInstruments, channel]() {
         try {
-            MarketDataRequest request = createCandlesRequest(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, candleInstruments);
-            streamLoop<MarketDataRequest>(request, callback);
+            MarketDataRequest request = createCandlesRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, candleInstruments);
+            
+            // Transition to connecting state
+            if (!transitionState(kConnecting)) {
+                channel->close();
+                return;
+            }
+            
+            // Create stream context
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            
+            // Create bidirectional stream
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                channel->close();
+                return;
+            }
+            
+            // Write subscription request
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            // Read responses and send to channel
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                if (!channel->send(std::move(streamResponse))) {
+                    break; // Channel closed by consumer
+                }
+            }
+            
+            // Finish stream
+            m_stream->Finish();
+            transitionState(kClosed);
         } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] SubscribeCandles: Exception in stream thread: " << e.what() << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, e.what())));
-            }
+            std::cerr << "[MarketDataStream] SubscribeCandlesCoroutine: Exception: " << e.what() << std::endl;
         } catch (...) {
-            std::cerr << "[MarketDataStream] SubscribeCandles: Unknown exception in stream thread" << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, "Unknown error in stream thread")));
-            }
+            std::cerr << "[MarketDataStream] SubscribeCandlesCoroutine: Unknown exception" << std::endl;
         }
+        
+        channel->close();
+        m_running.store(false);
     });
-}
-
-void MarketDataStream::SubscribeLastPrice(const std::vector<std::string> &instrumentIds, CallbackFunc callback)
-{
-    // Validate input parameters to prevent crashes
-    if (instrumentIds.empty()) {
-        std::cerr << "[MarketDataStream] SubscribeLastPrice: Error - instrumentIds is empty" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::INVALID_ARGUMENT, "instrumentIds cannot be empty")));
+    
+    // Yield responses from channel
+    while (true) {
+        MarketDataStreamResponse response;
+        if (channel->receive(response)) {
+            co_yield std::move(response);
+        } else {
+            break; // Channel closed
         }
-        return;
     }
     
-    // Prevent multiple concurrent subscriptions
+    // Note: Background thread handles cleanup - do not call close() here
+}
+
+MarketDataStreamGenerator<MarketDataStreamResponse> MarketDataStream::SubscribeLastPriceCoroutine(
+    const std::vector<std::string>& instrumentIds)
+{
+    if (instrumentIds.empty()) {
+        std::cerr << "[MarketDataStream] SubscribeLastPriceCoroutine: Error - instrumentIds is empty" << std::endl;
+        co_return;
+    }
+    
     if (m_running.load()) {
-        std::cerr << "[MarketDataStream] SubscribeLastPrice: Error - stream already running" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::RESOURCE_EXHAUSTED, "Stream already running - close existing stream first")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeLastPriceCoroutine: Error - stream already running" << std::endl;
+        co_return;
     }
     
+    auto channel = std::make_shared<StreamChannel<MarketDataStreamResponse>>();
     m_running.store(true);
-    m_streamThread = std::thread([this, instrumentIds, callback]() mutable {
+    
+    m_streamThread = std::thread([this, instrumentIds, channel]() {
         try {
-            MarketDataRequest request = createLastPriceRequest(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
-            streamLoop<MarketDataRequest>(request, callback);
+            MarketDataRequest request = createLastPriceRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
+            
+            if (!transitionState(kConnecting)) {
+                channel->close();
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                channel->close();
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                if (!channel->send(std::move(streamResponse))) {
+                    break;
+                }
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
         } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] SubscribeLastPrice: Exception in stream thread: " << e.what() << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, e.what())));
-            }
-        } catch (...) {
-            std::cerr << "[MarketDataStream] SubscribeLastPrice: Unknown exception in stream thread" << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, "Unknown error in stream thread")));
-            }
+            std::cerr << "[MarketDataStream] SubscribeLastPriceCoroutine: Exception: " << e.what() << std::endl;
         }
+        
+        channel->close();
+        m_running.store(false);
     });
+    
+    while (true) {
+        MarketDataStreamResponse response;
+        if (channel->receive(response)) {
+            co_yield std::move(response);
+        } else {
+            break;
+        }
+    }
+    
+    // Note: Background thread handles cleanup - do not call close() here
 }
 
-void MarketDataStream::SubscribeTrades(const std::vector<std::string> &instrumentIds, CallbackFunc callback)
+MarketDataStreamGenerator<MarketDataStreamResponse> MarketDataStream::SubscribeTradesCoroutine(
+    const std::vector<std::string>& instrumentIds)
 {
-    // Validate input parameters to prevent crashes
     if (instrumentIds.empty()) {
-        std::cerr << "[MarketDataStream] SubscribeTrades: Error - instrumentIds is empty" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::INVALID_ARGUMENT, "instrumentIds cannot be empty")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeTradesCoroutine: Error - instrumentIds is empty" << std::endl;
+        co_return;
     }
     
-    // Prevent multiple concurrent subscriptions
     if (m_running.load()) {
-        std::cerr << "[MarketDataStream] SubscribeTrades: Error - stream already running" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::RESOURCE_EXHAUSTED, "Stream already running - close existing stream first")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeTradesCoroutine: Error - stream already running" << std::endl;
+        co_return;
     }
     
+    auto channel = std::make_shared<StreamChannel<MarketDataStreamResponse>>();
     m_running.store(true);
-    m_streamThread = std::thread([this, instrumentIds, callback]() mutable {
+    
+    m_streamThread = std::thread([this, instrumentIds, channel]() {
         try {
-            MarketDataRequest request = createTradesRequest(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
-            streamLoop<MarketDataRequest>(request, callback);
+            MarketDataRequest request = createTradesRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
+            
+            if (!transitionState(kConnecting)) {
+                channel->close();
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                channel->close();
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                if (!channel->send(std::move(streamResponse))) {
+                    break;
+                }
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
         } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] SubscribeTrades: Exception in stream thread: " << e.what() << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, e.what())));
-            }
-        } catch (...) {
-            std::cerr << "[MarketDataStream] SubscribeTrades: Unknown exception in stream thread" << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, "Unknown error in stream thread")));
-            }
+            std::cerr << "[MarketDataStream] SubscribeTradesCoroutine: Exception: " << e.what() << std::endl;
         }
+        
+        channel->close();
+        m_running.store(false);
     });
+    
+    while (true) {
+        MarketDataStreamResponse response;
+        if (channel->receive(response)) {
+            co_yield std::move(response);
+        } else {
+            break;
+        }
+    }
+    
+    // Note: Background thread handles cleanup - do not call close() here
 }
 
-void MarketDataStream::SubscribeOrderBook(const std::vector<std::string> &instrumentIds, int32_t depth, CallbackFunc callback)
+MarketDataStreamGenerator<MarketDataStreamResponse> MarketDataStream::SubscribeOrderBookCoroutine(
+    const std::vector<std::string>& instrumentIds, int32_t depth)
 {
-    // Validate input parameters to prevent crashes
     if (instrumentIds.empty()) {
-        std::cerr << "[MarketDataStream] SubscribeOrderBook: Error - instrumentIds is empty" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::INVALID_ARGUMENT, "instrumentIds cannot be empty")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeOrderBookCoroutine: Error - instrumentIds is empty" << std::endl;
+        co_return;
     }
     
     if (depth <= 0) {
-        std::cerr << "[MarketDataStream] SubscribeOrderBook: Warning - invalid depth " << depth << ", using default 10" << std::endl;
         depth = 10;
     }
     
-    // Prevent multiple concurrent subscriptions
     if (m_running.load()) {
-        std::cerr << "[MarketDataStream] SubscribeOrderBook: Error - stream already running" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::RESOURCE_EXHAUSTED, "Stream already running - close existing stream first")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeOrderBookCoroutine: Error - stream already running" << std::endl;
+        co_return;
     }
     
+    auto channel = std::make_shared<StreamChannel<MarketDataStreamResponse>>();
     m_running.store(true);
     
-    // Wrap thread execution in try-catch to prevent std::terminate
-    m_streamThread = std::thread([this, instrumentIds, depth, callback]() mutable {
+    m_streamThread = std::thread([this, instrumentIds, depth, channel]() {
         try {
-            MarketDataRequest request = createOrderBookRequest(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds, depth);
-            streamLoop<MarketDataRequest>(request, callback);
+            MarketDataRequest request = createOrderBookRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds, depth);
+            
+            if (!transitionState(kConnecting)) {
+                channel->close();
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                channel->close();
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                if (!channel->send(std::move(streamResponse))) {
+                    break;
+                }
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
         } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] SubscribeOrderBook: Exception in stream thread: " << e.what() << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, e.what())));
-            }
-        } catch (...) {
-            std::cerr << "[MarketDataStream] SubscribeOrderBook: Unknown exception in stream thread" << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, "Unknown error in stream thread")));
-            }
+            std::cerr << "[MarketDataStream] SubscribeOrderBookCoroutine: Exception: " << e.what() << std::endl;
         }
+        
+        channel->close();
+        m_running.store(false);
     });
+    
+    while (true) {
+        MarketDataStreamResponse response;
+        if (channel->receive(response)) {
+            co_yield std::move(response);
+        } else {
+            break;
+        }
+    }
+    
+    // Note: Background thread handles cleanup - do not call close() here
 }
 
-void MarketDataStream::SubscribeInfo(const std::vector<std::string> &instrumentIds, CallbackFunc callback)
+MarketDataStreamGenerator<MarketDataStreamResponse> MarketDataStream::SubscribeInfoCoroutine(
+    const std::vector<std::string>& instrumentIds)
 {
-    // Validate input parameters to prevent crashes
     if (instrumentIds.empty()) {
-        std::cerr << "[MarketDataStream] SubscribeInfo: Error - instrumentIds is empty" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::INVALID_ARGUMENT, "instrumentIds cannot be empty")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeInfoCoroutine: Error - instrumentIds is empty" << std::endl;
+        co_return;
     }
     
-    // Prevent multiple concurrent subscriptions
     if (m_running.load()) {
-        std::cerr << "[MarketDataStream] SubscribeInfo: Error - stream already running" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::RESOURCE_EXHAUSTED, "Stream already running - close existing stream first")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeInfoCoroutine: Error - stream already running" << std::endl;
+        co_return;
     }
     
+    auto channel = std::make_shared<StreamChannel<MarketDataStreamResponse>>();
     m_running.store(true);
-    m_streamThread = std::thread([this, instrumentIds, callback]() mutable {
+    
+    m_streamThread = std::thread([this, instrumentIds, channel]() {
         try {
-            MarketDataRequest request = createInfoRequest(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
-            streamLoop<MarketDataRequest>(request, callback);
+            MarketDataRequest request = createInfoRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
+            
+            if (!transitionState(kConnecting)) {
+                channel->close();
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                channel->close();
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                if (!channel->send(std::move(streamResponse))) {
+                    break;
+                }
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
         } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] SubscribeInfo: Exception in stream thread: " << e.what() << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, e.what())));
-            }
-        } catch (...) {
-            std::cerr << "[MarketDataStream] SubscribeInfo: Unknown exception in stream thread" << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, "Unknown error in stream thread")));
-            }
+            std::cerr << "[MarketDataStream] SubscribeInfoCoroutine: Exception: " << e.what() << std::endl;
         }
+        
+        channel->close();
+        m_running.store(false);
     });
-}
-
-// ============================================================================
-// Async Methods (already async)
-// ============================================================================
-
-void MarketDataStream::SubscribeCandlesAsync(const std::vector<std::pair<std::string, SubscriptionInterval>> &candleInstruments, CallbackFunc callback)
-{
-    // Wrap the entire SDK call with try-catch to prevent std::terminate
-    try {
-        SubscribeCandles(candleInstruments, callback);
-    } catch (const std::exception& e) {
-        std::cerr << "[MarketDataStream] SubscribeCandlesAsync: Exception: " << e.what() << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, e.what()), MarketDataResponse()));
-        }
-    } catch (...) {
-        std::cerr << "[MarketDataStream] SubscribeCandlesAsync: Unknown exception" << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, "Unknown error"), MarketDataResponse()));
+    
+    while (true) {
+        MarketDataStreamResponse response;
+        if (channel->receive(response)) {
+            co_yield std::move(response);
+        } else {
+            break;
         }
     }
+    
+    // Note: Background thread handles cleanup - do not call close() here
 }
 
-void MarketDataStream::SubscribeOrderBookAsync(const std::vector<std::string> &instrumentIds, int32_t depth, CallbackFunc callback)
-{
-    // Wrap the entire SDK call with try-catch to prevent std::terminate
-    try {
-        SubscribeOrderBook(instrumentIds, depth, callback);
-    } catch (const std::exception& e) {
-        std::cerr << "[MarketDataStream] SubscribeOrderBookAsync: Exception: " << e.what() << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, e.what()), MarketDataResponse()));
-        }
-    } catch (...) {
-        std::cerr << "[MarketDataStream] SubscribeOrderBookAsync: Unknown exception" << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, "Unknown error"), MarketDataResponse()));
-        }
-    }
-}
-
-void MarketDataStream::SubscribeTradesAsync(const std::vector<std::string> &instrumentIds, CallbackFunc callback)
-{
-    // Wrap the entire SDK call with try-catch to prevent std::terminate
-    try {
-        SubscribeTrades(instrumentIds, callback);
-    } catch (const std::exception& e) {
-        std::cerr << "[MarketDataStream] SubscribeTradesAsync: Exception: " << e.what() << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, e.what()), MarketDataResponse()));
-        }
-    } catch (...) {
-        std::cerr << "[MarketDataStream] SubscribeTradesAsync: Unknown exception" << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, "Unknown error"), MarketDataResponse()));
-        }
-    }
-}
-
-void MarketDataStream::SubscribeInfoAsync(const std::vector<std::string> &instrumentIds, CallbackFunc callback)
-{
-    // Wrap the entire SDK call with try-catch to prevent std::terminate
-    try {
-        SubscribeInfo(instrumentIds, callback);
-    } catch (const std::exception& e) {
-        std::cerr << "[MarketDataStream] SubscribeInfoAsync: Exception: " << e.what() << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, e.what()), MarketDataResponse()));
-        }
-    } catch (...) {
-        std::cerr << "[MarketDataStream] SubscribeInfoAsync: Unknown exception" << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, "Unknown error"), MarketDataResponse()));
-        }
-    }
-}
-
-void MarketDataStream::SubscribeLastPriceAsync(const std::vector<std::string> &instrumentIds, CallbackFunc callback)
-{
-    // Wrap the entire SDK call with try-catch to prevent std::terminate
-    try {
-        SubscribeLastPrice(instrumentIds, callback);
-    } catch (const std::exception& e) {
-        std::cerr << "[MarketDataStream] SubscribeLastPriceAsync: Exception: " << e.what() << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, e.what()), MarketDataResponse()));
-        }
-    } catch (...) {
-        std::cerr << "[MarketDataStream] SubscribeLastPriceAsync: Unknown exception" << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, "Unknown error"), MarketDataResponse()));
-        }
-    }
-}
-
-// ============================================================================
-// Unsubscription Methods
-// ============================================================================
-
-void MarketDataStream::UnSubscribeCandles()
-{
-    MarketDataRequest request = createCandlesRequest(SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
-    if (m_stream) m_stream->Write(request);
-}
-
-void MarketDataStream::UnSubscribeOrderBook()
-{
-    MarketDataRequest request = createOrderBookRequest(SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {}, 0);
-    if (m_stream) m_stream->Write(request);
-}
-
-void MarketDataStream::UnSubscribeTrades()
-{
-    MarketDataRequest request = createTradesRequest(SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
-    if (m_stream) m_stream->Write(request);
-}
-
-void MarketDataStream::UnSubscribeLastPrice()
-{
-    MarketDataRequest request = createLastPriceRequest(SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
-    if (m_stream) m_stream->Write(request);
-}
-
-void MarketDataStream::UnSubscribeInfo()
-{
-    MarketDataRequest request = createInfoRequest(SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
-    if (m_stream) m_stream->Write(request);
-}
-
-// ============================================================================
-// Async Unsubscription Methods
-// ============================================================================
-
-void MarketDataStream::UnSubscribeCandlesAsync() { UnSubscribeCandles(); }
-void MarketDataStream::UnSubscribeOrderBookAsync() { UnSubscribeOrderBook(); }
-void MarketDataStream::UnSubscribeTradesAsync() { UnSubscribeTrades(); }
-void MarketDataStream::UnSubscribeLastPriceAsync() { UnSubscribeLastPrice(); }
-void MarketDataStream::UnSubscribeInfoAsync() { UnSubscribeInfo(); }
-
-// ============================================================================
-// Combined Subscription Methods (Single Stream)
-// ============================================================================
-
-MarketDataRequest MarketDataStream::createCombinedRequest(
-    SubscriptionAction action,
+MarketDataStreamGenerator<MarketDataStreamResponse> MarketDataStream::SubscribeAllCoroutine(
     const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
     const std::vector<std::string>& orderBookInstruments,
     int32_t orderBookDepth,
@@ -579,158 +538,494 @@ MarketDataRequest MarketDataStream::createCombinedRequest(
     const std::vector<std::string>& infoInstruments,
     const std::vector<std::string>& lastPriceInstruments)
 {
-    MarketDataRequest request;
-    
-    // Add candles subscription
-    if (!candleInstruments.empty()) {
-        auto* scr = request.mutable_subscribe_candles_request();
-        scr->set_subscription_action(action);
-        for (const auto& [instrumentId, interval] : candleInstruments) {
-            auto* instr = scr->add_instruments();
-            instr->set_instrument_id(instrumentId);
-            instr->set_interval(interval);
-        }
-    }
-    
-    // Add order book subscription
-    if (!orderBookInstruments.empty()) {
-        auto* sobr = request.mutable_subscribe_order_book_request();
-        sobr->set_subscription_action(action);
-        for (const auto& instrumentId : orderBookInstruments) {
-            auto* instr = sobr->add_instruments();
-            instr->set_instrument_id(instrumentId);
-            instr->set_depth(orderBookDepth);
-        }
-    }
-    
-    // Add trades subscription
-    if (!tradesInstruments.empty()) {
-        auto* str = request.mutable_subscribe_trades_request();
-        str->set_subscription_action(action);
-        for (const auto& instrumentId : tradesInstruments) {
-            auto* instr = str->add_instruments();
-            instr->set_instrument_id(instrumentId);
-        }
-    }
-    
-    // Add info subscription
-    if (!infoInstruments.empty()) {
-        auto* sir = request.mutable_subscribe_info_request();
-        sir->set_subscription_action(action);
-        for (const auto& instrumentId : infoInstruments) {
-            auto* instr = sir->add_instruments();
-            instr->set_instrument_id(instrumentId);
-        }
-    }
-    
-    // Add last price subscription
-    if (!lastPriceInstruments.empty()) {
-        auto* slpr = request.mutable_subscribe_last_price_request();
-        slpr->set_subscription_action(action);
-        for (const auto& instrumentId : lastPriceInstruments) {
-            auto* instr = slpr->add_instruments();
-            instr->set_instrument_id(instrumentId);
-        }
-    }
-    
-    return request;
-}
-
-void MarketDataStream::SubscribeAll(
-    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
-    const std::vector<std::string>& orderBookInstruments,
-    int32_t orderBookDepth,
-    const std::vector<std::string>& tradesInstruments,
-    const std::vector<std::string>& infoInstruments,
-    const std::vector<std::string>& lastPriceInstruments,
-    CallbackFunc callback)
-{
-    // Validate input parameters to prevent crashes
     bool hasAnySubscription = !candleInstruments.empty() || !orderBookInstruments.empty() || 
                               !tradesInstruments.empty() || !infoInstruments.empty() || 
                               !lastPriceInstruments.empty();
     
     if (!hasAnySubscription) {
-        std::cerr << "[MarketDataStream] SubscribeAll: Error - no instruments to subscribe" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::INVALID_ARGUMENT, "At least one instrument type must be provided")));
-        }
-        return;
+        std::cerr << "[MarketDataStream] SubscribeAllCoroutine: Error - no instruments to subscribe" << std::endl;
+        co_return;
     }
     
     if (orderBookDepth <= 0) {
-        std::cerr << "[MarketDataStream] SubscribeAll: Warning - invalid depth " << orderBookDepth << ", using default 10" << std::endl;
         orderBookDepth = 10;
     }
     
-    // Prevent multiple concurrent subscriptions
     if (m_running.load()) {
-        std::cerr << "[MarketDataStream] SubscribeAll: Error - stream already running" << std::endl;
-        if (callback) {
-            callback(ServiceReply(nullptr, grpc::Status(grpc::RESOURCE_EXHAUSTED, "Stream already running - close existing stream first")));
+        std::cerr << "[MarketDataStream] SubscribeAllCoroutine: Error - stream already running" << std::endl;
+        co_return;
+    }
+    
+    auto channel = std::make_shared<StreamChannel<MarketDataStreamResponse>>();
+    m_running.store(true);
+    
+    m_streamThread = std::thread([this, candleInstruments, orderBookInstruments, orderBookDepth,
+                                  tradesInstruments, infoInstruments, lastPriceInstruments, channel]() {
+        try {
+            // Inline combined request creation (logic moved from removed createCombinedRequest method)
+            MarketDataRequest request;
+            
+            // Add candles subscription
+            if (!candleInstruments.empty()) {
+                auto* scr = request.mutable_subscribe_candles_request();
+                scr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+                for (const auto& [instrumentId, interval] : candleInstruments) {
+                    auto* instr = scr->add_instruments();
+                    instr->set_instrument_id(instrumentId);
+                    instr->set_interval(interval);
+                }
+            }
+            
+            // Add order book subscription
+            if (!orderBookInstruments.empty()) {
+                auto* sobr = request.mutable_subscribe_order_book_request();
+                sobr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+                for (const auto& instrumentId : orderBookInstruments) {
+                    auto* instr = sobr->add_instruments();
+                    instr->set_instrument_id(instrumentId);
+                    instr->set_depth(orderBookDepth);
+                }
+            }
+            
+            // Add trades subscription
+            if (!tradesInstruments.empty()) {
+                auto* str = request.mutable_subscribe_trades_request();
+                str->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+                for (const auto& instrumentId : tradesInstruments) {
+                    auto* instr = str->add_instruments();
+                    instr->set_instrument_id(instrumentId);
+                }
+            }
+            
+            // Add info subscription
+            if (!infoInstruments.empty()) {
+                auto* sir = request.mutable_subscribe_info_request();
+                sir->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+                for (const auto& instrumentId : infoInstruments) {
+                    auto* instr = sir->add_instruments();
+                    instr->set_instrument_id(instrumentId);
+                }
+            }
+            
+            // Add last price subscription
+            if (!lastPriceInstruments.empty()) {
+                auto* slpr = request.mutable_subscribe_last_price_request();
+                slpr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
+                for (const auto& instrumentId : lastPriceInstruments) {
+                    auto* instr = slpr->add_instruments();
+                    instr->set_instrument_id(instrumentId);
+                }
+            }
+            
+            if (!transitionState(kConnecting)) {
+                channel->close();
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                channel->close();
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                if (!channel->send(std::move(streamResponse))) {
+                    break;
+                }
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataStream] SubscribeAllCoroutine: Exception: " << e.what() << std::endl;
         }
+        
+        channel->close();
+        m_running.store(false);
+    });
+    
+    while (true) {
+        MarketDataStreamResponse response;
+        if (channel->receive(response)) {
+            co_yield std::move(response);
+        } else {
+            break;
+        }
+    }
+    
+    // Note: Background thread handles cleanup - do not call close() here
+}
+
+
+// ============================================================================
+// Callback-based Async Streaming Methods (non-coroutine)
+// ============================================================================
+
+void MarketDataStream::SubscribeCandlesAsync(
+    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
+    CallbackFunc callback)
+{
+    if (candleInstruments.empty()) {
+        std::cerr << "[MarketDataStream] SubscribeCandlesAsync: Error - candleInstruments is empty" << std::endl;
+        return;
+    }
+    
+    if (m_running.load()) {
+        std::cerr << "[MarketDataStream] SubscribeCandlesAsync: Error - stream already running" << std::endl;
         return;
     }
     
     m_running.store(true);
-    m_streamThread = std::thread([this, candleInstruments, orderBookInstruments, orderBookDepth, 
-                                   tradesInstruments, infoInstruments, lastPriceInstruments, callback]() mutable {
+    
+    m_streamThread = std::thread([this, candleInstruments, callback]() {
         try {
-            MarketDataRequest request = createCombinedRequest(
-                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE,
-                candleInstruments, orderBookInstruments, orderBookDepth,
-                tradesInstruments, infoInstruments, lastPriceInstruments);
-            streamLoop<MarketDataRequest>(request, callback);
+            MarketDataRequest request = createCandlesRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, candleInstruments);
+            
+            if (!transitionState(kConnecting)) {
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                callback(ServiceReply(streamResponse));
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
         } catch (const std::exception& e) {
-            std::cerr << "[MarketDataStream] SubscribeAll: Exception in stream thread: " << e.what() << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, e.what())));
-            }
-        } catch (...) {
-            std::cerr << "[MarketDataStream] SubscribeAll: Unknown exception in stream thread" << std::endl;
-            if (callback) {
-                callback(ServiceReply(nullptr, grpc::Status(grpc::UNKNOWN, "Unknown error in stream thread")));
-            }
+            std::cerr << "[MarketDataStream] SubscribeCandlesAsync: Exception: " << e.what() << std::endl;
         }
+        
+        m_running.store(false);
     });
 }
 
-void MarketDataStream::SubscribeAllAsync(
-    const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
-    const std::vector<std::string>& orderBookInstruments,
-    int32_t orderBookDepth,
-    const std::vector<std::string>& tradesInstruments,
-    const std::vector<std::string>& infoInstruments,
-    const std::vector<std::string>& lastPriceInstruments,
+void MarketDataStream::SubscribeLastPriceAsync(
+    const std::vector<std::string>& instrumentIds,
     CallbackFunc callback)
 {
-    // Wrap the entire SDK call with try-catch to prevent std::terminate
+    if (instrumentIds.empty()) {
+        std::cerr << "[MarketDataStream] SubscribeLastPriceAsync: Error - instrumentIds is empty" << std::endl;
+        return;
+    }
+    
+    if (m_running.load()) {
+        std::cerr << "[MarketDataStream] SubscribeLastPriceAsync: Error - stream already running" << std::endl;
+        return;
+    }
+    
+    m_running.store(true);
+    
+    m_streamThread = std::thread([this, instrumentIds, callback]() {
+        try {
+            MarketDataRequest request = createLastPriceRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
+            
+            if (!transitionState(kConnecting)) {
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                callback(ServiceReply(streamResponse));
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataStream] SubscribeLastPriceAsync: Exception: " << e.what() << std::endl;
+        }
+        
+        m_running.store(false);
+    });
+}
+
+void MarketDataStream::SubscribeTradesAsync(
+    const std::vector<std::string>& instrumentIds,
+    CallbackFunc callback)
+{
+    if (instrumentIds.empty()) {
+        std::cerr << "[MarketDataStream] SubscribeTradesAsync: Error - instrumentIds is empty" << std::endl;
+        return;
+    }
+    
+    if (m_running.load()) {
+        std::cerr << "[MarketDataStream] SubscribeTradesAsync: Error - stream already running" << std::endl;
+        return;
+    }
+    
+    m_running.store(true);
+    
+    m_streamThread = std::thread([this, instrumentIds, callback]() {
+        try {
+            MarketDataRequest request = createTradesRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
+            
+            if (!transitionState(kConnecting)) {
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                callback(ServiceReply(streamResponse));
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataStream] SubscribeTradesAsync: Exception: " << e.what() << std::endl;
+        }
+        
+        m_running.store(false);
+    });
+}
+
+void MarketDataStream::SubscribeOrderBookAsync(
+    const std::vector<std::string>& instrumentIds,
+    int32_t depth,
+    CallbackFunc callback)
+{
+    if (instrumentIds.empty()) {
+        std::cerr << "[MarketDataStream] SubscribeOrderBookAsync: Error - instrumentIds is empty" << std::endl;
+        return;
+    }
+    
+    if (depth <= 0) {
+        depth = 10;
+    }
+    
+    if (m_running.load()) {
+        std::cerr << "[MarketDataStream] SubscribeOrderBookAsync: Error - stream already running" << std::endl;
+        return;
+    }
+    
+    m_running.store(true);
+    
+    m_streamThread = std::thread([this, instrumentIds, depth, callback]() {
+        try {
+            MarketDataRequest request = createOrderBookRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds, depth);
+            
+            if (!transitionState(kConnecting)) {
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                callback(ServiceReply(streamResponse));
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataStream] SubscribeOrderBookAsync: Exception: " << e.what() << std::endl;
+        }
+        
+        m_running.store(false);
+    });
+}
+
+void MarketDataStream::SubscribeInfoAsync(
+    const std::vector<std::string>& instrumentIds,
+    CallbackFunc callback)
+{
+    if (instrumentIds.empty()) {
+        std::cerr << "[MarketDataStream] SubscribeInfoAsync: Error - instrumentIds is empty" << std::endl;
+        return;
+    }
+    
+    if (m_running.load()) {
+        std::cerr << "[MarketDataStream] SubscribeInfoAsync: Error - stream already running" << std::endl;
+        return;
+    }
+    
+    m_running.store(true);
+    
+    m_streamThread = std::thread([this, instrumentIds, callback]() {
+        try {
+            MarketDataRequest request = createInfoRequest(
+                SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE, instrumentIds);
+            
+            if (!transitionState(kConnecting)) {
+                return;
+            }
+            
+            m_context = std::make_unique<grpc::ClientContext>();
+            addAuthMetadata(*m_context);
+            m_stream = m_stub->MarketDataStream(m_context.get());
+            
+            if (!transitionState(kConnected)) {
+                return;
+            }
+            
+            m_stream->Write(request);
+            transitionState(kStreaming);
+            
+            MarketDataResponse response;
+            while (m_stream->Read(&response)) {
+                m_messageCount.fetch_add(1);
+                MarketDataStreamResponse streamResponse(response);
+                callback(ServiceReply(streamResponse));
+            }
+            
+            m_stream->Finish();
+            transitionState(kClosed);
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataStream] SubscribeInfoAsync: Exception: " << e.what() << std::endl;
+        }
+        
+        m_running.store(false);
+    });
+}
+
+void MarketDataStream::UnSubscribeCandlesAsync()
+{
+    if (!m_running.load()) {
+        return;
+    }
+    
     try {
-        SubscribeAll(candleInstruments, orderBookInstruments, orderBookDepth,
-                    tradesInstruments, infoInstruments, lastPriceInstruments, callback);
+        MarketDataRequest request = createCandlesRequest(
+            SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
+        
+        if (m_stream) {
+            m_stream->Write(request);
+        }
     } catch (const std::exception& e) {
-        std::cerr << "[MarketDataStream] SubscribeAllAsync: Exception: " << e.what() << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, e.what()), MarketDataResponse()));
-        }
-    } catch (...) {
-        std::cerr << "[MarketDataStream] SubscribeAllAsync: Unknown exception" << std::endl;
-        if (callback) {
-            callback(ServiceReply::prepareServiceAnswer(grpc::Status(grpc::UNKNOWN, "Unknown error"), MarketDataResponse()));
-        }
+        std::cerr << "[MarketDataStream] UnSubscribeCandlesAsync: Exception: " << e.what() << std::endl;
     }
 }
 
-void MarketDataStream::UnSubscribeAll()
+void MarketDataStream::UnSubscribeLastPriceAsync()
 {
-    MarketDataRequest request = createCombinedRequest(
-        SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE,
-        {}, {}, 0, {}, {}, {});
-    if (m_stream) m_stream->Write(request);
+    if (!m_running.load()) {
+        return;
+    }
+    
+    try {
+        MarketDataRequest request = createLastPriceRequest(
+            SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
+        
+        if (m_stream) {
+            m_stream->Write(request);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[MarketDataStream] UnSubscribeLastPriceAsync: Exception: " << e.what() << std::endl;
+    }
 }
 
-void MarketDataStream::UnSubscribeAllAsync()
+void MarketDataStream::UnSubscribeTradesAsync()
 {
-    UnSubscribeAll();
+    if (!m_running.load()) {
+        return;
+    }
+    
+    try {
+        MarketDataRequest request = createTradesRequest(
+            SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
+        
+        if (m_stream) {
+            m_stream->Write(request);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[MarketDataStream] UnSubscribeTradesAsync: Exception: " << e.what() << std::endl;
+    }
 }
 
+void MarketDataStream::UnSubscribeOrderBookAsync()
+{
+    if (!m_running.load()) {
+        return;
+    }
+    
+    try {
+        MarketDataRequest request = createOrderBookRequest(
+            SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {}, 0);
+        
+        if (m_stream) {
+            m_stream->Write(request);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[MarketDataStream] UnSubscribeOrderBookAsync: Exception: " << e.what() << std::endl;
+    }
+}
+
+void MarketDataStream::UnSubscribeInfoAsync()
+{
+    if (!m_running.load()) {
+        return;
+    }
+    
+    try {
+        MarketDataRequest request = createInfoRequest(
+            SubscriptionAction::SUBSCRIPTION_ACTION_UNSUBSCRIBE, {});
+        
+        if (m_stream) {
+            m_stream->Write(request);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[MarketDataStream] UnSubscribeInfoAsync: Exception: " << e.what() << std::endl;
+    }
+}
