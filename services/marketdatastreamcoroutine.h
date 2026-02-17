@@ -43,7 +43,7 @@ using MarketDataStreamCallback = std::function<void(MarketDataStreamResponse)>;
 // Coroutine Types for Async gRPC Streaming
 // ============================================================================
 
-// Forward declaration
+// Forward declarations
 template<typename T>
 class MarketDataStreamGenerator;
 
@@ -108,8 +108,9 @@ public:
     
     void return_void() noexcept {}
     
-    std::shared_ptr<void> get_return_object() {
-        return nullptr;
+    // Return coroutine handle directly for void type
+    std::coroutine_handle<void> get_return_object() {
+        return std::coroutine_handle<StreamPromise<void>>::from_promise(*this);
     }
     
     void unhandled_exception() {
@@ -207,7 +208,7 @@ public:
         using difference_type = std::ptrdiff_t;
         using value_type = T;
         using pointer = T*;
-        using reference = T&;
+        using reference = T;  // Return by value to avoid dangling reference
         
         iterator() : generator_(nullptr), done_(true) {}
         iterator(MarketDataStreamGenerator* g, bool done) : generator_(g), done_(done) {}
@@ -222,9 +223,13 @@ public:
             }
         }
         
-        T& operator*() {
+        T operator*() {
             auto val = generator_->current();
-            return val.value();
+            if (!val.has_value()) {
+                done_ = true;
+                return T{};
+            }
+            return std::move(val.value());  // Return by value to avoid dangling reference
         }
     };
     
@@ -238,6 +243,52 @@ public:
     
     iterator end() {
         return iterator(this, true);
+    }
+    
+    handle_type release() {
+        auto h = coroutine_;
+        coroutine_ = nullptr;
+        return h;
+    }
+    
+    handle_type coroutine_;
+};
+
+// Full specialization for void type
+template<>
+class MarketDataStreamGenerator<void> {
+public:
+    using promise_type = StreamPromise<void>;
+    using handle_type = std::coroutine_handle<promise_type>;
+    
+    MarketDataStreamGenerator() : coroutine_(nullptr) {}
+    
+    explicit MarketDataStreamGenerator(handle_type h) : coroutine_(h) {}
+    
+    ~MarketDataStreamGenerator() {
+        if (coroutine_) {
+            coroutine_.destroy();
+        }
+    }
+    
+    // Move-only
+    MarketDataStreamGenerator(const MarketDataStreamGenerator&) = delete;
+    MarketDataStreamGenerator& operator=(const MarketDataStreamGenerator&) = delete;
+    
+    MarketDataStreamGenerator(MarketDataStreamGenerator&& other) noexcept 
+        : coroutine_(other.coroutine_) {
+        other.coroutine_ = nullptr;
+    }
+    
+    MarketDataStreamGenerator& operator=(MarketDataStreamGenerator&& other) noexcept {
+        if (this != &other) {
+            if (coroutine_) {
+                coroutine_.destroy();
+            }
+            coroutine_ = other.coroutine_;
+            other.coroutine_ = nullptr;
+        }
+        return *this;
     }
     
     handle_type release() {
