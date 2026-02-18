@@ -1,10 +1,22 @@
 #include "investapiclient.h"
 #include "marketdatastreamservice.h"
 #include "ordersstreamservice.h"
+#include <iostream>
 
 void marketStreamCallBack(ServiceReply reply)
 {
-    std::cout << reply.ptr()->DebugString() << std::endl;
+    // Check if this is a streaming response (MarketDataStreamResponse)
+    if (reply.hasMarketDataStreamResponse()) {
+        // Use getMarketDataStreamResponse() for streaming responses
+        const auto& streamResponse = reply.getMarketDataStreamResponse();
+        std::cout << "Payload type: " << streamResponse.getPayloadTypeString() << std::endl;
+        std::cout << streamResponse.debugString() << std::endl;
+    } else if (reply.ptr()) {
+        // Use ptr() for non-streaming (unary) responses
+        std::cout << reply.ptr()->DebugString() << std::endl;
+    } else {
+        std::cout << "Empty response" << std::endl;
+    }
 }
 
 int main()

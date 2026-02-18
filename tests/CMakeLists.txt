@@ -178,3 +178,21 @@ target_link_libraries(test_streaming_independent_streams
 # Add test to CTest
 add_test(NAME test_streaming_independent_streams COMMAND test_streaming_independent_streams)
 
+# Streaming callback nullptr fix test - verifies that streaming callbacks 
+# return valid data via getMarketDataStreamResponse() instead of nullptr from ptr()
+add_executable(test_streaming_callback_nullptr_fix test_streaming_callback_nullptr_fix.cpp)
+
+target_link_libraries(test_streaming_callback_nullptr_fix
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_streaming_callback_nullptr_fix COMMAND test_streaming_callback_nullptr_fix)
+

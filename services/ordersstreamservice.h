@@ -9,7 +9,6 @@
 #include "customservice.h"
 #include "orders.grpc.pb.h"
 #include "commontypes.h"
-#include "marketdatastreamcoroutine.h"
 
 using grpc::ClientAsyncReader;
 using grpc::Channel;
@@ -34,17 +33,6 @@ public:
     void TradesStreamAsync(const Strings &accounts, CallbackFunc callback);
     /// Закрыть поток
     void close();
-    
-    // =========================================================================
-    // Coroutine-based subscription methods (C++20)
-    // =========================================================================
-    
-    /*!
-        \brief Subscribe to trades stream using C++20 coroutines
-        \param accounts Vector of account IDs
-        \return MarketDataStreamGenerator that yields TradesStreamResponse
-    */
-    MarketDataStreamGenerator<TradesStreamResponse> TradesStreamCoroutine(const Strings &accounts);
     
 private:
     void onStreamFinished();

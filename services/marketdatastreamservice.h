@@ -13,7 +13,6 @@
 #include "customservice.h"
 #include "commontypes.h"
 #include "marketdatastreamresponse.h"
-#include "marketdatastreamcoroutine.h"
 
 using grpc::Channel;
 using grpc::ClientReaderWriter;
@@ -36,7 +35,7 @@ enum StreamState {
     \brief MarketDataStream service for streaming market data
     
     This class provides market data streaming using gRPC bidirectional streaming
-    with C++20 coroutines.
+    with callback-based async pattern.
     Supports:
     - Candles (OHLCV data)
     - Last price updates
@@ -51,70 +50,7 @@ public:
     ~MarketDataStream();
     
     // =========================================================================
-    // C++20 Coroutine-based Streaming Methods
-    // =========================================================================
-    
-    /*!
-        \brief Subscribe to candles using C++20 coroutines
-        \param candleInstruments Vector of (instrument_id, interval) pairs
-        \return MarketDataStreamGenerator that yields MarketDataStreamResponse
-    */
-    MarketDataStreamGenerator<MarketDataStreamResponse> SubscribeCandlesCoroutine(
-        const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments);
-    
-    /*!
-        \brief Subscribe to last price using C++20 coroutines
-        \param instrumentIds Vector of instrument IDs
-        \return MarketDataStreamGenerator that yields MarketDataStreamResponse
-    */
-    MarketDataStreamGenerator<MarketDataStreamResponse> SubscribeLastPriceCoroutine(
-        const std::vector<std::string>& instrumentIds);
-    
-    /*!
-        \brief Subscribe to trades using C++20 coroutines
-        \param instrumentIds Vector of instrument IDs
-        \return MarketDataStreamGenerator that yields MarketDataStreamResponse
-    */
-    MarketDataStreamGenerator<MarketDataStreamResponse> SubscribeTradesCoroutine(
-        const std::vector<std::string>& instrumentIds);
-    
-    /*!
-        \brief Subscribe to order book using C++20 coroutines
-        \param instrumentIds Vector of instrument IDs
-        \param depth Order book depth
-        \return MarketDataStreamGenerator that yields MarketDataStreamResponse
-    */
-    MarketDataStreamGenerator<MarketDataStreamResponse> SubscribeOrderBookCoroutine(
-        const std::vector<std::string>& instrumentIds, int32_t depth = 10);
-    
-    /*!
-        \brief Subscribe to trading info using C++20 coroutines
-        \param instrumentIds Vector of instrument IDs
-        \return MarketDataStreamGenerator that yields MarketDataStreamResponse
-    */
-    MarketDataStreamGenerator<MarketDataStreamResponse> SubscribeInfoCoroutine(
-        const std::vector<std::string>& instrumentIds);
-    
-    /*!
-        \brief Subscribe to all market data types using C++20 coroutines
-        \param candleInstruments Vector of (instrument_id, interval) pairs for candles
-        \param orderBookInstruments Vector of instrument IDs for order book
-        \param orderBookDepth Order book depth
-        \param tradesInstruments Vector of instrument IDs for trades
-        \param infoInstruments Vector of instrument IDs for trading info
-        \param lastPriceInstruments Vector of instrument IDs for last price
-        \return MarketDataStreamGenerator that yields MarketDataStreamResponse
-    */
-    MarketDataStreamGenerator<MarketDataStreamResponse> SubscribeAllCoroutine(
-        const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments,
-        const std::vector<std::string>& orderBookInstruments,
-        int32_t orderBookDepth,
-        const std::vector<std::string>& tradesInstruments,
-        const std::vector<std::string>& infoInstruments,
-        const std::vector<std::string>& lastPriceInstruments);
-    
-    // =========================================================================
-    // Callback-based Async Streaming Methods (non-coroutine)
+    // Callback-based Async Streaming Methods
     // =========================================================================
     
     /*!
