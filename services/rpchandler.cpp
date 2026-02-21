@@ -1,4 +1,5 @@
 #include "rpchandler.h"
+#include "ordersstreamresponse.h"
 
 // Debug logging disabled by default - uncomment to enable
 // #define DEBUG_RPCHANDLER
@@ -423,7 +424,10 @@ void OrdersHandler::on_recv()
     RPCHANDLER_LOG("Payload valid: " << validPayload << ", message count: " << message_count_.load());
 
     if (validPayload) {
-        auto data = ServiceReply(std::make_shared<TradesStreamResponse>(incoming_), {});
+        // Create OrdersStreamResponse wrapper for proper callback handling
+        OrdersStreamResponse streamResponse(incoming_);
+        
+        auto data = ServiceReply(streamResponse, {});
         if (callback_) {
             message_count_.fetch_add(1, std::memory_order_relaxed);
             RPCHANDLER_LOG("Invoking callback with valid payload, message #" << message_count_.load());

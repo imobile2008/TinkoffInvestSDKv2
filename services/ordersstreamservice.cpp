@@ -1,4 +1,5 @@
 #include "ordersstreamservice.h"
+#include "ordersstreamresponse.h"
 #include <iostream>
 #include <thread>
 
@@ -90,7 +91,9 @@ void OrdersStream::TradesStreamAsync(const Strings &accounts, CallbackFunc callb
             TradesStreamResponse response;
             while (reader->Read(&response)) {
                 try {
-                    auto data = ServiceReply(std::make_shared<TradesStreamResponse>(response), {});
+                    // Use OrdersStreamResponse wrapper for proper callback handling
+                    OrdersStreamResponse streamResponse(response);
+                    auto data = ServiceReply(streamResponse, {});
                     if (callback) {
                         callback(data);
                     }
@@ -135,7 +138,9 @@ void OrdersStream::TradesStream(const Strings &accounts, CallbackFunc callback)
     std::unique_ptr<ClientReader<TradesStreamResponse> > reader(
         m_ordersStreamService->TradesStream(&context, request));
     while (reader->Read(&reply)) {
-        auto data = ServiceReply(std::make_shared<TradesStreamResponse>(reply), {});
+        // Use OrdersStreamResponse wrapper for proper callback handling
+        OrdersStreamResponse streamResponse(reply);
+        auto data = ServiceReply(streamResponse, {});
         if (callback) callback(data);
     }
     Status status = reader->Finish();

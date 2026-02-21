@@ -5,13 +5,21 @@
 
 void marketStreamCallBack(ServiceReply reply)
 {
-    // Check if this is a streaming response (MarketDataStreamResponse)
+    // Check if this is a MarketDataStream response first
     if (reply.hasMarketDataStreamResponse()) {
-        // Use getMarketDataStreamResponse() for streaming responses
+        // Use getMarketDataStreamResponse() for MarketDataStream responses
         const auto& streamResponse = reply.getMarketDataStreamResponse();
-        std::cout << "Payload type: " << streamResponse.getPayloadTypeString() << std::endl;
+        std::cout << "[MarketData] Payload type: " << streamResponse.getPayloadTypeString() << std::endl;
         std::cout << streamResponse.debugString() << std::endl;
-    } else if (reply.ptr()) {
+    } 
+    // Check if this is an OrdersStream response
+    else if (reply.hasOrdersStreamResponse()) {
+        // Use getOrdersStreamResponse() for OrdersStream responses
+        const auto& streamResponse = reply.getOrdersStreamResponse();
+        std::cout << "[OrdersStream] Payload type: " << streamResponse.getPayloadTypeString() << std::endl;
+        std::cout << streamResponse.debugString() << std::endl;
+    }
+    else if (reply.ptr()) {
         // Use ptr() for non-streaming (unary) responses
         std::cout << reply.ptr()->DebugString() << std::endl;
     } else {
