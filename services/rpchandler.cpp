@@ -1,6 +1,8 @@
 #include "rpchandler.h"
 #include "ordersstreamresponse.h"
 
+#include <iostream>
+
 // Debug logging disabled by default - uncomment to enable
 // #define DEBUG_RPCHANDLER
 
@@ -257,6 +259,9 @@ void MarketDataHandler::on_recv()
     RPCHANDLER_LOG("Payload valid: " << validPayload << ", message count: " << message_count_.load());
 
     if (validPayload) {
+        // Reset consecutive NULL counter on successful payload
+        resetConsecutiveNullCount();
+        
         // Create MarketDataStreamResponse wrapper with automatic payload type detection
         MarketDataStreamResponse streamResponse(incoming_);
 
@@ -267,7 +272,14 @@ void MarketDataHandler::on_recv()
             callback_(data);
         }
     } else {
-        RPCHANDLER_LOG("Received empty payload, skipping callback");
+        // Track consecutive NULL/invalid payloads
+        uint32_t nullCount = consecutive_null_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+        RPCHANDLER_LOG("Received empty/invalid payload, consecutive NULL count: " << nullCount);
+        
+        // Log warning at threshold to help diagnose connection issues
+        if (nullCount >= 10) {
+            std::cerr << "[MarketDataHandler] Warning: " << nullCount << " consecutive NULL/invalid replies - stream may have connection issues" << std::endl;
+        }
     }
 
     // Continue reading if stream is still open
@@ -278,6 +290,11 @@ void MarketDataHandler::on_recv()
     } else {
         RPCHANDLER_LOG("Stream is closing, not reading more");
     }
+}
+
+void MarketDataHandler::resetConsecutiveNullCount()
+{
+    consecutive_null_count_.store(0, std::memory_order_relaxed);
 }
 
 void MarketDataHandler::on_write_done()
@@ -424,6 +441,9 @@ void OrdersHandler::on_recv()
     RPCHANDLER_LOG("Payload valid: " << validPayload << ", message count: " << message_count_.load());
 
     if (validPayload) {
+        // Reset consecutive NULL counter on successful payload
+        resetConsecutiveNullCount();
+        
         // Create OrdersStreamResponse wrapper for proper callback handling
         OrdersStreamResponse streamResponse(incoming_);
         
@@ -434,7 +454,14 @@ void OrdersHandler::on_recv()
             callback_(data);
         }
     } else {
-        RPCHANDLER_LOG("Received empty payload, skipping callback");
+        // Track consecutive NULL/invalid payloads
+        uint32_t nullCount = consecutive_null_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+        RPCHANDLER_LOG("Received empty/invalid payload, consecutive NULL count: " << nullCount);
+        
+        // Log warning at threshold to help diagnose connection issues
+        if (nullCount >= 10) {
+            std::cerr << "[OrdersHandler] Warning: " << nullCount << " consecutive NULL/invalid replies - stream may have connection issues" << std::endl;
+        }
     }
 
     // Continue reading if stream is still open
@@ -445,6 +472,11 @@ void OrdersHandler::on_recv()
     } else {
         RPCHANDLER_LOG("Stream is closing, not reading more");
     }
+}
+
+void OrdersHandler::resetConsecutiveNullCount()
+{
+    consecutive_null_count_.store(0, std::memory_order_relaxed);
 }
 
 void OrdersHandler::on_write_done()

@@ -110,6 +110,9 @@ public:
     uint64_t getMessageCount() const { return message_count_.load(std::memory_order_relaxed); }
     bool isConnected() const { return stream_state_.load(std::memory_order_acquire) >= StreamState::kConnected; }
     bool isReceiving() const { return stream_state_.load(std::memory_order_acquire) == StreamState::kReceiving; }
+    
+    // Get consecutive NULL reply count for diagnostics
+    uint32_t getConsecutiveNullCount() const { return consecutive_null_count_.load(std::memory_order_relaxed); }
 
 private:
     void on_ready() override;
@@ -123,6 +126,9 @@ private:
     // Validate that the incoming message contains valid data
     bool hasValidPayload() const;
 
+    // Reset consecutive NULL counter after successful payload
+    void resetConsecutiveNullCount();
+
     responder_ptr responder_;
     MarketDataResponse incoming_;
 
@@ -130,6 +136,7 @@ private:
     std::atomic<uint64_t> message_count_{0};
     std::atomic<bool> sending_{false};
     std::atomic<bool> ready_{false};
+    std::atomic<uint32_t> consecutive_null_count_{0};
     std::queue<MarketDataRequest> queued_msgs_;
     CallbackFunc callback_;
 
@@ -157,6 +164,9 @@ public:
     bool isConnected() const { return stream_state_.load(std::memory_order_acquire) >= StreamState::kConnected; }
     bool isReceiving() const { return stream_state_.load(std::memory_order_acquire) == StreamState::kReceiving; }
     
+    // Get consecutive NULL reply count for diagnostics
+    uint32_t getConsecutiveNullCount() const { return consecutive_null_count_.load(std::memory_order_relaxed); }
+    
     // Cancel the ongoing operation
     void cancel() { context.TryCancel(); }
 
@@ -172,11 +182,15 @@ private:
     // Validate that the incoming message contains valid data
     bool hasValidPayload() const;
 
+    // Reset consecutive NULL counter after successful payload
+    void resetConsecutiveNullCount();
+
     responder_ptr responder_;
     TradesStreamResponse incoming_;
 
     std::atomic<StreamState> stream_state_{StreamState::kDisconnected};
     std::atomic<uint64_t> message_count_{0};
+    std::atomic<uint32_t> consecutive_null_count_{0};
     CallbackFunc callback_;
     std::function<void()> finishCallback_;
 

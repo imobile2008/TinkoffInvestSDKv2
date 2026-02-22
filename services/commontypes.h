@@ -48,7 +48,12 @@ public:
 	template<class T>
     static const ServiceReply prepareServiceAnswer(const Status &status, const T &protoMsg, const std::string& messageIfError = "")
     {
-        return (status.ok()) ? ServiceReply(std::make_shared<T>(protoMsg), status) : ServiceReply(nullptr, status, messageIfError);
+        std::string errorMsg = messageIfError;
+        // If no custom error message provided, use gRPC error message if status is not OK
+        if (errorMsg.empty() && !status.ok()) {
+            errorMsg = status.error_message();
+        }
+        return (status.ok()) ? ServiceReply(std::make_shared<T>(protoMsg), status) : ServiceReply(nullptr, status, errorMsg);
     }
 
 private:

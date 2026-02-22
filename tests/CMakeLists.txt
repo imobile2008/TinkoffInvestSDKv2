@@ -196,3 +196,39 @@ target_link_libraries(test_streaming_callback_nullptr_fix
 # Add test to CTest
 add_test(NAME test_streaming_callback_nullptr_fix COMMAND test_streaming_callback_nullptr_fix)
 
+# MarketDataStream Subscribe and Wait 10 Minutes Test (gtest)
+# This test subscribes to market data stream and waits 10 minutes,
+# logging detailed information for each incoming message
+add_executable(test_streaming_subscribe_wait_10min test_streaming_subscribe_wait_10min.cpp)
+
+target_link_libraries(test_streaming_subscribe_wait_10min
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_streaming_subscribe_wait_10min COMMAND test_streaming_subscribe_wait_10min)
+
+# Simple OrderBook Streaming Test (gtest) - demonstrates ORDERBOOK subscription
+add_executable(test_streaming_orderbook_simple test_streaming_orderbook_simple.cpp)
+
+target_link_libraries(test_streaming_orderbook_simple
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_streaming_orderbook_simple COMMAND test_streaming_orderbook_simple)
+

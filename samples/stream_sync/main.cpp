@@ -2,6 +2,35 @@
 #include "investapiclient.h"
 #include "marketdatastreamservice.h"
 #include "marketdatastreamresponse.h"
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+
+// Helper function to load token from file with fallback to environment variable
+std::string loadToken(const std::string& filename = ".test_token.txt")
+{
+    // First try to load from file
+    std::ifstream file(filename);
+    if (file.is_open()) {
+        std::string token;
+        std::getline(file, token);
+        // Remove any whitespace or newline characters
+        token.erase(remove_if(token.begin(), token.end(), ::isspace), token.end());
+        if (!token.empty()) {
+            return token;
+        }
+        file.close();
+    }
+    
+    // Fallback to environment variable
+    const char* envToken = getenv("TOKEN");
+    if (envToken != nullptr) {
+        return std::string(envToken);
+    }
+    
+    // Return empty string if no token found - the API client will handle the error
+    return "";
+}
 
 void marketStreamCallBack(ServiceReply reply)
 {
@@ -91,7 +120,7 @@ void marketStreamCallBackAdvanced(MarketDataStreamResponse response)
 
 int main()
 {    
-    InvestApiClient client("invest-public-api.tinkoff.ru:443", getenv("TOKEN"));
+    InvestApiClient client("invest-public-api.tinkoff.ru:443", loadToken());
 
     //get reference to MarketDataStream service
     auto marketdata = std::dynamic_pointer_cast<MarketDataStream>(client.service("marketdatastream"));
