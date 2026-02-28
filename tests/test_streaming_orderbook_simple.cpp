@@ -15,6 +15,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <string>
 #include <vector>
