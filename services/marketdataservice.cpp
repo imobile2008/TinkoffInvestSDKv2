@@ -128,3 +128,31 @@ ServiceReply MarketData::GetClosePrices(const std::vector<std::string> &instrume
     Status status = m_marketDataService->GetClosePrices(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<GetClosePricesResponse>(status, reply);
 }
+
+ServiceReply MarketData::GetTechAnalysis(const std::string &instrumentId, CandleInterval interval)
+{
+    // GetTechAnalysis method not available in current API
+    // GetTechAnalysisRequest request;
+    // request.set_instrument_uid(instrumentId);
+    // // Convert CandleInterval to GetTechAnalysisRequest_IndicatorInterval
+    // // CandleInterval_CANDLE_INTERVAL_1_MIN = 1 maps to INDICATOR_INTERVAL_ONE_MINUTE = 1
+    // auto indicatorInterval = static_cast<GetTechAnalysisRequest_IndicatorInterval>(interval);
+    // request.set_interval(indicatorInterval);
+    // GetTechAnalysisResponse reply;
+    // Status status = m_marketDataService->GetTechAnalysis(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetTechAnalysisResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetTechAnalysis method not available in current API version");
+}
+
+ServiceReply MarketData::GetMarketValues(const std::vector<std::string> &instrumentIds)
+{
+    // GetMarketValues method not available in current API
+    // GetMarketValuesRequest request;
+    // for (const auto& id : instrumentIds) {
+    //     request.add_instrument_id(id);
+    // }
+    // GetMarketValuesResponse reply;
+    // Status status = m_marketDataService->GetMarketValues(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetMarketValuesResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetMarketValues method not available in current API version");
+}

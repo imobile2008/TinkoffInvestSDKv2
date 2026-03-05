@@ -5,6 +5,7 @@
 #include "usersservice.h"
 #include "instrumentsservice.h"
 #include "operationsservice.h"
+#include "operationsstreamservice.h"
 #include "ordersservice.h"
 #include "ordersstreamservice.h"
 #include "stopordersservice.h"
@@ -72,6 +73,7 @@ InvestApiClient::InvestApiClient(const std::string &host, const std::string &pas
     m_services["stoporders"] = std::make_shared<StopOrders>(channel, pass);
     m_services["marketdatastream"] = std::make_shared<MarketDataStream>(channel, pass);
     m_services["ordersstream"] = std::make_shared<OrdersStream>(channel, pass);
+    m_services["operationsstream"] = std::make_shared<OperationsStream>(channel, pass);
 }
 
 InvestApiClient::~InvestApiClient()

@@ -28,7 +28,7 @@ endif()
 find_package(Threads REQUIRED)
 
 set(GRPC_AS_SUBMODULE false)
-set(GRPC_FETCHCONTENT true)
+set(GRPC_FETCHCONTENT false)
 
 if(GRPC_AS_SUBMODULE)
   # One way to build a projects that uses gRPC is to just include the
@@ -121,6 +121,6 @@ else()
   if(CMAKE_CROSSCOMPILING)
     find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
   else()
-    set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
+    find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
   endif()
 endif()

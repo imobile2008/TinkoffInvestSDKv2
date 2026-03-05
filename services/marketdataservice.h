@@ -46,6 +46,10 @@ public:
     ServiceReply GetLastTrades(const std::string &instrumentId, int64_t fromseconds, int32_t fromnanos, int64_t toseconds, int32_t tonanos);
     /// Метод запроса цен закрытия торговой сессии по инструментам
     ServiceReply GetClosePrices(const std::vector<std::string> &instrumentIds);
+    /// Метод запроса технического анализа
+    ServiceReply GetTechAnalysis(const std::string &instrumentId, CandleInterval interval);
+    /// Метод получения рыночных данных
+    ServiceReply GetMarketValues(const std::vector<std::string> &instrumentIds);
 
 private:
     std::unique_ptr<MarketDataService::Stub> m_marketDataService;

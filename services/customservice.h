@@ -5,11 +5,9 @@
 #include <thread>
 #include "google/protobuf/message.h"
 #include "commontypes.h"
-#include "rpchandler.h"
 
 using grpc::ClientContext;
 using grpc::Status;
-using grpc::CompletionQueue;
 
 /*!
     \brief  Родительский класс для всех сервисов
@@ -26,10 +24,7 @@ public:
 
 protected:
     const std::string m_token;
-    CompletionQueue m_cq;
-    std::unique_ptr<std::thread> m_grpcThread;
     std::shared_ptr<ClientContext> makeContext();
-    void StartThread();
 
 };
 

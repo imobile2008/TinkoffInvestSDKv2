@@ -39,6 +39,12 @@ public:
     ServiceReply GetOrderState(const std::string &accountId, const std::string &orderId);
     /// Метод получения списка активных заявок по счёту
     ServiceReply GetOrders(const std::string &accountId);
+    /// Метод выставления асинхронной заявки
+    ServiceReply PostOrderAsync(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId, const std::string &priceSalt);
+    /// Метод получения максимального количества лотов
+    ServiceReply GetMaxLots(const std::string &instrumentId, const std::string &accountId);
+    /// Метод получения цены заявки
+    ServiceReply GetOrderPrice(const std::string &instrumentId, int64_t quantity, OrderDirection direction, const std::string &accountId, OrderType orderType);
 
 private:
     std::unique_ptr<OrdersService::Stub> m_ordersService;

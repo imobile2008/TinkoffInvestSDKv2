@@ -4,6 +4,7 @@
 #include "customservice.h"
 #include <grpcpp/grpcpp.h>
 #include "sandbox.grpc.pb.h"
+#include "stoporders.grpc.pb.h"
 #include "commontypes.h"
 
 using grpc::Channel;
@@ -54,6 +55,18 @@ public:
     ServiceReply SandboxPayIn(const std::string &accountId, const std::string  &currency, int64_t units, int32_t nano);
     /// Получение доступного остатка для вывода средств в песочнице
     ServiceReply GetSandboxWithdrawLimits(const std::string &accountId);
+    /// Выставление асинхронного торгового поручения в песочнице
+    ServiceReply PostSandboxOrderAsync(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId, const std::string &priceSalt);
+    /// Получение цены заявки в песочнице
+    ServiceReply GetSandboxOrderPrice(const std::string &instrumentId, int64_t quantity, OrderDirection direction, const std::string &accountId, OrderType orderType);
+    /// Получение максимального количества лотов в песочнице
+    ServiceReply GetSandboxMaxLots(const std::string &instrumentId, const std::string &accountId);
+    /// Выставление стоп-заявки в песочнице
+    ServiceReply PostSandboxStopOrder(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, int64_t stopunits, int32_t stopnano, StopOrderDirection direction, const std::string &accountId, StopOrderExpirationType expirationType, StopOrderType stopOrderType, int64_t expireSeconds, int32_t expireNanos);
+    /// Получение списка стоп-заявок в песочнице
+    ServiceReply GetSandboxStopOrders(const std::string &accountId);
+    /// Отмена стоп-заявки в песочнице
+    ServiceReply CancelSandboxStopOrder(const std::string &accountId, const std::string &stopOrderId);
 
 private:
     std::unique_ptr<SandboxService::Stub> m_sandboxService;

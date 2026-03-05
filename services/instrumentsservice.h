@@ -66,6 +66,51 @@ public:
     ServiceReply GetFavorites();
     /// Метод редактирования избранных инструментов
     ServiceReply EditFavorites(const std::vector<EditFavoritesRequestInstrument> &instruments, EditFavoritesActionType actionType);
+    /// Метод получения событий по облигации
+    ServiceReply GetBondEvents(const std::string &figi, int64_t fromseconds, int32_t fromnanos, int64_t toseconds, int32_t tonanos);
+    /// Метод получения опциона по его идентификатору
+    ServiceReply OptionBy(InstrumentIdType idType, const std::string &classCode, const std::string &id);
+    /// Метод получения списка опционов
+    ServiceReply Options(InstrumentStatus instrumentStatus);
+    /// Метод получения списка опционов по фильтру
+    ServiceReply OptionsBy(InstrumentStatus instrumentStatus, const std::string &underlyingFigi, std::string &isoCurrency);
+    /// Метод получения фонда доверительного управления (ДУ) по его идентификатору
+    ServiceReply DfaBy(InstrumentIdType idType, const std::string &classCode, const std::string &id);
+    /// Метод получения списка фондов доверительного управления (ДУ)
+    ServiceReply Dfas(InstrumentStatus instrumentStatus);
+    /// Метод получения индикативных данных по инструменту
+    /// Not available in current API version
+    // ServiceReply Indicatives(const std::string &instrumentId);
+    /// Метод создания группы избранного
+    /// Not available in current API version
+    // ServiceReply CreateFavoriteGroup(const std::string &name, const std::vector<std::string> &instrumentIds);
+    /// Метод удаления группы избранного
+    /// Not available in current API version
+    // ServiceReply DeleteFavoriteGroup(const std::string &favoriteId);
+    /// Метод получения списка групп избранного
+    ServiceReply GetFavoriteGroups();
+    /// Метод получения списка стран
+    ServiceReply GetCountries();
+    /// Метод поиска инструмента по идентификатору
+    ServiceReply FindInstrument(const std::string &query);
+    /// Метод получения списка брендов
+    /// Not available in current API version
+    // ServiceReply GetBrands(const std::string &instrumentId);
+    /// Метод получения бренда по идентификатору
+    ServiceReply GetBrandBy(const std::string &brandId);
+    /// Метод получения фундаментальных данных по активу
+    /// Not available in current API version
+    // ServiceReply GetAssetFundamentals(const std::string &instrumentId, int64_t fromseconds, int32_t fromnanos, int64_t toseconds, int32_t tonanos);
+    /// Метод получения отчётов по активу
+    /// Not available in current API version
+    // ServiceReply GetAssetReports(const std::string &assetId, int64_t fromseconds, int32_t fromnanos, int64_t toseconds, int32_t tonanos);
+    // GetConsensusForecasts removed - does not exist in current API
+    // /// Метод получения консенсус-прогнозов
+    // ServiceReply GetConsensusForecasts(const std::string &instrumentId);
+    /// Метод получения прогноза по инструменту
+    ServiceReply GetForecastBy(const std::string &instrumentId);
+    /// Метод получения процентных ставок
+    ServiceReply GetRiskRates(const std::string &instrumentId);
 
 private:
     std::unique_ptr<InstrumentsService::Stub> m_instrumentsService;

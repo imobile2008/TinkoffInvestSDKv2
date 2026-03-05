@@ -32,6 +32,14 @@ public:
     ServiceReply GetUserTariff();
     /// Метод получения информации о пользователе
     ServiceReply GetInfo();
+    /// Метод получения банковских счетов
+    ServiceReply GetBankAccounts();
+    /// Метод перевода валюты между счетами
+    ServiceReply CurrencyTransfer(const std::string &accountId, const std::string &fromCurrency, const std::string &toCurrency, int64_t units, int32_t nano);
+    /// Метод пополнения брокерского счёта
+    ServiceReply PayIn(const std::string &accountId, const std::string &currency, int64_t units, int32_t nano);
+    /// Метод получения значений счёта
+    ServiceReply GetAccountValues(const std::string &accountId);
 
 private:
     std::unique_ptr<UsersService::Stub> m_usersService;

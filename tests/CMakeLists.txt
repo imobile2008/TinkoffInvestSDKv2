@@ -232,3 +232,36 @@ target_link_libraries(test_streaming_orderbook_simple
 # Add test to CTest
 add_test(NAME test_streaming_orderbook_simple COMMAND test_streaming_orderbook_simple)
 
+# New Functionality Tests - Tests for new SDK methods
+# Tests: FindInstrument, GetCountries, GetBrandBy, OptionBy, Options, PostOrderAsync, PostSandboxOrderAsync
+add_executable(test_new_functionality test_new_functionality.cpp)
+
+target_link_libraries(test_new_functionality
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_new_functionality COMMAND test_new_functionality)
+
+# OperationsStream Tests - Tests for OperationsStream service (Portfolio and Positions streaming)
+add_executable(test_operations_stream test_operations_stream.cpp)
+
+target_link_libraries(test_operations_stream
+    PRIVATE
+        tink_grpc_proto
+        TinkoffInvestSDK
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        Threads::Threads
+)
+
+# Add test to CTest
+add_test(NAME test_operations_stream COMMAND test_operations_stream)
+

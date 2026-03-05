@@ -7,6 +7,7 @@
 #include "tinkoffinvestsdk_export.h"
 #include "marketdatastreamresponse.h"
 #include "ordersstreamresponse.h"
+#include "operationsstreamresponse.h"
 
 using grpc::Status;
 
@@ -30,6 +31,12 @@ public:
     // Constructor for OrdersStreamResponse compatibility
     ServiceReply(const OrdersStreamResponse& streamResponse, const Status& status = Status());
     
+    // Constructor for OperationsStreamResponse compatibility
+    ServiceReply(const OperationsStreamResponse& streamResponse, const Status& status = Status());
+    
+    // Constructor for error status with custom message
+    ServiceReply(const Status& status, const std::string& messageIfError);
+    
     const std::shared_ptr<google::protobuf::Message> ptr();
     const std::string accountID(const int i);
     const std::string accountName(const int i);
@@ -44,6 +51,10 @@ public:
     // OrdersStreamResponse access methods
     bool hasOrdersStreamResponse() const;
     const OrdersStreamResponse& getOrdersStreamResponse() const;
+
+    // OperationsStreamResponse access methods
+    bool hasOperationsStreamResponse() const;
+    const OperationsStreamResponse& getOperationsStreamResponse() const;
 
 	template<class T>
     static const ServiceReply prepareServiceAnswer(const Status &status, const T &protoMsg, const std::string& messageIfError = "")
@@ -66,10 +77,18 @@ private:
     
     // Optional OrdersStreamResponse for orders streaming support
     std::shared_ptr<OrdersStreamResponse> m_ordersStreamResponse;
+    
+    // Optional OperationsStreamResponse for operations streaming support
+    std::shared_ptr<OperationsStreamResponse> m_operationsStreamResponse;
 };
 
 using CallbackFunc = std::function<void (ServiceReply)>;
 
 using Strings = std::vector<std::string>;
+
+//////////////////////////////////////////////////////////////////////////
+// Enums from common.proto
+//////////////////////////////////////////////////////////////////////////
+
 
 #endif // COMMONTYPES_H

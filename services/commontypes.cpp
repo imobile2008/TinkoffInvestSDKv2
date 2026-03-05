@@ -2,6 +2,7 @@
 #include "commontypes.h"
 #include "marketdatastreamresponse.h"
 #include "ordersstreamresponse.h"
+#include "operationsstreamresponse.h"
 
 using namespace tinkoff::public_::invest::api::contract::v1;
 
@@ -35,12 +36,33 @@ ServiceReply::ServiceReply(const OrdersStreamResponse& streamResponse, const Sta
       m_status(status), 
       m_errorMessage(""), 
       m_streamResponse(nullptr),
-      m_ordersStreamResponse(std::make_shared<OrdersStreamResponse>(streamResponse))
+      m_ordersStreamResponse(std::make_shared<OrdersStreamResponse>(streamResponse)),
+      m_operationsStreamResponse(nullptr)
 {
     // Ensure proper initialization - throw if allocation failed
     if (!m_ordersStreamResponse) {
         throw std::runtime_error("Failed to create OrdersStreamResponse");
     }
+}
+
+ServiceReply::ServiceReply(const OperationsStreamResponse& streamResponse, const Status& status)
+    : m_replyPtr(nullptr), 
+      m_status(status), 
+      m_errorMessage(""), 
+      m_streamResponse(nullptr),
+      m_ordersStreamResponse(nullptr),
+      m_operationsStreamResponse(std::make_shared<OperationsStreamResponse>(streamResponse))
+{
+    // Ensure proper initialization - throw if allocation failed
+    if (!m_operationsStreamResponse) {
+        throw std::runtime_error("Failed to create OperationsStreamResponse");
+    }
+}
+
+ServiceReply::ServiceReply(const Status& status, const std::string& messageIfError)
+    : m_replyPtr(nullptr), m_status(status), m_errorMessage(messageIfError), m_streamResponse(nullptr), m_ordersStreamResponse(nullptr)
+{
+    
 }
 
 const std::string ServiceReply::accountID(const int i)
@@ -109,4 +131,17 @@ const OrdersStreamResponse& ServiceReply::getOrdersStreamResponse() const
         throw std::runtime_error("ServiceReply does not contain an OrdersStreamResponse");
     }
     return *m_ordersStreamResponse;
+}
+
+bool ServiceReply::hasOperationsStreamResponse() const
+{
+    return m_operationsStreamResponse != nullptr;
+}
+
+const OperationsStreamResponse& ServiceReply::getOperationsStreamResponse() const
+{
+    if (!m_operationsStreamResponse) {
+        throw std::runtime_error("ServiceReply does not contain an OperationsStreamResponse");
+    }
+    return *m_operationsStreamResponse;
 }

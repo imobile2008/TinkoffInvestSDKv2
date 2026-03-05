@@ -218,3 +218,102 @@ ServiceReply Sandbox::GetSandboxWithdrawLimits(const std::string &accountId)
     Status status = m_sandboxService->GetSandboxWithdrawLimits(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<WithdrawLimitsResponse>(status, reply);
 }
+
+ServiceReply Sandbox::PostSandboxOrderAsync(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId, const std::string &priceSalt)
+{
+    PostOrderRequest request;
+    request.set_instrument_id(instrumentId);
+    request.set_quantity(quantity);
+    auto price = new Quotation();
+    price->set_units(units);
+    price->set_nano(nano);
+    request.set_allocated_price(price);
+    request.set_direction(direction);
+    request.set_account_id(accountId);
+    request.set_order_type(orderType);
+    request.set_order_id(orderId);
+    // Note: priceSalt parameter kept for API compatibility but not set on request
+    // as the field doesn't exist in the current protobuf version
+    PostOrderResponse reply;
+    Status status = m_sandboxService->PostSandboxOrder(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
+}
+
+ServiceReply Sandbox::GetSandboxOrderPrice(const std::string &instrumentId, int64_t quantity, OrderDirection direction, const std::string &accountId, OrderType orderType)
+{
+    // GetSandboxOrderPrice method not available in current API
+    // GetOrderPriceRequest request;
+    // request.set_instrument_id(instrumentId);
+    // request.set_quantity(quantity);
+    // request.set_direction(direction);
+    // request.set_account_id(accountId);
+    // // Note: orderType parameter kept for API compatibility but not set on request
+    // // as the field doesn't exist in GetOrderPriceRequest protobuf
+    // GetOrderPriceResponse reply;
+    // Status status = m_sandboxService->GetSandboxOrderPrice(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetOrderPriceResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetSandboxOrderPrice method not available in current API version");
+}
+
+ServiceReply Sandbox::GetSandboxMaxLots(const std::string &instrumentId, const std::string &accountId)
+{
+    // GetSandboxMaxLots method not available in current API
+    // GetMaxLotsRequest request;
+    // request.set_instrument_id(instrumentId);
+    // request.set_account_id(accountId);
+    // GetMaxLotsResponse reply;
+    // Status status = m_sandboxService->GetSandboxMaxLots(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetMaxLotsResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetSandboxMaxLots method not available in current API version");
+}
+
+ServiceReply Sandbox::PostSandboxStopOrder(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, int64_t stopunits, int32_t stopnano, StopOrderDirection direction, const std::string &accountId, StopOrderExpirationType expirationType, StopOrderType stopOrderType, int64_t expireSeconds, int32_t expireNanos)
+{
+    // PostSandboxStopOrder method not available in current API
+    // PostStopOrderRequest request;
+    // request.set_instrument_id(instrumentId);
+    // request.set_quantity(quantity);
+    // auto price = new Quotation();
+    // price->set_units(units);
+    // price->set_nano(nano);
+    // request.set_allocated_price(price);
+    // auto stopprice = new Quotation();
+    // stopprice->set_units(stopunits);
+    // stopprice->set_nano(stopnano);
+    // request.set_allocated_stop_price(stopprice);
+    // request.set_direction(direction);
+    // request.set_account_id(accountId);
+    // request.set_expiration_type(expirationType);
+    // request.set_stop_order_type(stopOrderType);
+    // google::protobuf::Timestamp *expireDate = new google::protobuf::Timestamp();
+    // expireDate->set_seconds(expireSeconds);
+    // expireDate->set_nanos(expireNanos);
+    // request.set_allocated_expire_date(expireDate);
+    // PostStopOrderResponse reply;
+    // Status status = m_sandboxService->PostSandboxStopOrder(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<PostStopOrderResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "PostSandboxStopOrder method not available in current API version");
+}
+
+ServiceReply Sandbox::GetSandboxStopOrders(const std::string &accountId)
+{
+    // GetSandboxStopOrders method not available in current API
+    // GetStopOrdersRequest request;
+    // request.set_account_id(accountId);
+    // GetStopOrdersResponse reply;
+    // Status status = m_sandboxService->GetSandboxStopOrders(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetStopOrdersResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetSandboxStopOrders method not available in current API version");
+}
+
+ServiceReply Sandbox::CancelSandboxStopOrder(const std::string &accountId, const std::string &stopOrderId)
+{
+    // CancelSandboxStopOrder method not available in current API
+    // CancelStopOrderRequest request;
+    // request.set_account_id(accountId);
+    // request.set_stop_order_id(stopOrderId);
+    // CancelStopOrderResponse reply;
+    // Status status = m_sandboxService->CancelSandboxStopOrder(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<CancelStopOrderResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "CancelSandboxStopOrder method not available in current API version");
+}

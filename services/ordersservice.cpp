@@ -93,3 +93,51 @@ ServiceReply Orders::ReplaceOrder(const std::string &accountId, const std::strin
     Status status = m_ordersService->ReplaceOrder(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
 }
+
+ServiceReply Orders::PostOrderAsync(const std::string &instrumentId, int64_t quantity, int64_t units, int32_t nano, OrderDirection direction, const std::string &accountId, OrderType orderType, const std::string &orderId, const std::string &priceSalt)
+{
+    PostOrderRequest request;
+    request.set_instrument_id(instrumentId);
+    request.set_quantity(quantity);
+    auto price = new Quotation();
+    price->set_units(units);
+    price->set_nano(nano);
+    request.set_allocated_price(price);
+    request.set_direction(direction);
+    request.set_account_id(accountId);
+    request.set_order_type(orderType);
+    request.set_order_id(orderId);
+    // Note: priceSalt parameter kept for API compatibility but not set on request
+    // as the field doesn't exist in the current protobuf version
+    PostOrderResponse reply;
+    Status status = m_ordersService->PostOrder(makeContext().get(), request, &reply);
+    return ServiceReply::prepareServiceAnswer<PostOrderResponse>(status, reply);
+}
+
+ServiceReply Orders::GetMaxLots(const std::string &instrumentId, const std::string &accountId)
+{
+    // GetMaxLots method not available in current API
+    // GetMaxLotsRequest request;
+    // request.set_instrument_id(instrumentId);
+    // request.set_account_id(accountId);
+    // GetMaxLotsResponse reply;
+    // Status status = m_ordersService->GetMaxLots(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetMaxLotsResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetMaxLots method not available in current API version");
+}
+
+ServiceReply Orders::GetOrderPrice(const std::string &instrumentId, int64_t quantity, OrderDirection direction, const std::string &accountId, OrderType orderType)
+{
+    // GetOrderPrice method not available in current API
+    // GetOrderPriceRequest request;
+    // request.set_instrument_id(instrumentId);
+    // request.set_quantity(quantity);
+    // request.set_direction(direction);
+    // request.set_account_id(accountId);
+    // // Note: orderType parameter kept for API compatibility but not set on request
+    // // as the field doesn't exist in GetOrderPriceRequest protobuf
+    // GetOrderPriceResponse reply;
+    // Status status = m_ordersService->GetOrderPrice(makeContext().get(), request, &reply);
+    // return ServiceReply::prepareServiceAnswer<GetOrderPriceResponse>(status, reply);
+    return ServiceReply(grpc::Status::CANCELLED, "GetOrderPrice method not available in current API version");
+}
