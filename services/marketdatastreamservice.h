@@ -133,6 +133,70 @@ public:
     uint64_t getMessageCount() const;
     void close();
     
+    // =========================================================================
+    // Subscription management
+    // =========================================================================
+    
+    /*!
+        \brief Get currently subscribed order book instruments
+        \return Set of instrument IDs
+    */
+    std::set<std::string> GetSubscribedOrderBooks() const;
+    
+    /*!
+        \brief Get currently subscribed trades instruments
+        \return Set of instrument IDs
+    */
+    std::set<std::string> GetSubscribedTrades() const;
+    
+    /*!
+        \brief Get currently subscribed candles instruments
+        \return Set of (instrument_id, interval) pairs
+    */
+    std::set<std::pair<std::string, SubscriptionInterval>> GetSubscribedCandles() const;
+    
+    /*!
+        \brief Get currently subscribed info instruments
+        \return Set of instrument IDs
+    */
+    std::set<std::string> GetSubscribedInfo() const;
+    
+    /*!
+        \brief Get currently subscribed last price instruments
+        \return Set of instrument IDs
+    */
+    std::set<std::string> GetSubscribedLastPrices() const;
+    
+    /*!
+        \brief Unsubscribe from specific order book instruments
+        \param instrumentIds Vector of instrument IDs to unsubscribe
+    */
+    void UnSubscribeOrderBookAsync(const std::vector<std::string>& instrumentIds);
+    
+    /*!
+        \brief Unsubscribe from specific trades instruments
+        \param instrumentIds Vector of instrument IDs to unsubscribe
+    */
+    void UnSubscribeTradesAsync(const std::vector<std::string>& instrumentIds);
+    
+    /*!
+        \brief Unsubscribe from specific candles instruments
+        \param candleInstruments Vector of (instrument_id, interval) pairs to unsubscribe
+    */
+    void UnSubscribeCandlesAsync(const std::vector<std::pair<std::string, SubscriptionInterval>>& candleInstruments);
+    
+    /*!
+        \brief Unsubscribe from specific info instruments
+        \param instrumentIds Vector of instrument IDs to unsubscribe
+    */
+    void UnSubscribeInfoAsync(const std::vector<std::string>& instrumentIds);
+    
+    /*!
+        \brief Unsubscribe from specific last price instruments
+        \param instrumentIds Vector of instrument IDs to unsubscribe
+    */
+    void UnSubscribeLastPriceAsync(const std::vector<std::string>& instrumentIds);
+    
 private:
     std::unique_ptr<MarketDataStreamService::Stub> m_stub;
     std::shared_ptr<grpc::Channel> m_channel;
@@ -145,6 +209,15 @@ private:
     std::unique_ptr<grpc::ClientContext> m_context;
     std::shared_ptr<grpc::ClientReaderWriter<MarketDataRequest, MarketDataResponse>> m_stream;
     std::thread m_streamThread;
+    
+    // Subscription tracking
+    mutable std::mutex m_subscriptionsMutex;
+    std::set<std::string> m_subscribedOrderBooks;
+    std::set<std::string> m_subscribedTrades;
+    std::set<std::pair<std::string, SubscriptionInterval>> m_subscribedCandles;
+    std::set<std::string> m_subscribedInfo;
+    std::set<std::string> m_subscribedLastPrices;
+    int32_t m_orderBookDepth = 10;
     
     void addAuthMetadata(grpc::ClientContext &context);
     bool transitionState(int newState);
