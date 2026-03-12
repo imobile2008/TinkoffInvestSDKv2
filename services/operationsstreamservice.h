@@ -56,12 +56,21 @@ public:
         const std::vector<std::string>& accounts,
         CallbackFunc callback);
     
-    /*!
+/*!
         \brief Subscribe to position changes with callback
         \param accounts Vector of account IDs to subscribe to
         \param callback Callback function to receive positions responses
     */
     void PositionsStreamAsync(
+        const std::vector<std::string>& accounts,
+        CallbackFunc callback);
+
+    /*!
+        \brief Subscribe to operations events with callback
+        \param accounts Vector of account IDs to subscribe to
+        \param callback Callback function to receive operations responses
+    */
+    void OperationsStreamAsync(
         const std::vector<std::string>& accounts,
         CallbackFunc callback);
     

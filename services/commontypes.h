@@ -4,7 +4,7 @@
 #include <grpcpp/grpcpp.h>
 #include <functional>
 #include "google/protobuf/message.h"
-#include "../build/tinkoffinvestsdk_export.h"
+#include "tinkoffinvestsdk_export.h"
 
 #include "marketdatastreamresponse.h"
 #include "ordersstreamresponse.h"
@@ -93,3 +93,4 @@ using Strings = std::vector<std::string>;
 
 
 #endif // COMMONTYPES_H
+
