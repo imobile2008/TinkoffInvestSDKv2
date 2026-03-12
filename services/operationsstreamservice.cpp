@@ -270,3 +270,13 @@ void OperationsStream::PositionsStreamAsync(
     });
 }
 
+void OperationsStream::OperationsStreamAsync(
+    const std::vector<std::string>& accounts,
+    CallbackFunc callback)
+{
+    std::cerr << "[OperationsStream] OperationsStreamAsync: Not implemented - Tinkoff API has separate PortfolioStreamService and PositionsStreamService" << std::endl;
+    if (callback) {
+        callback(ServiceReply(nullptr, grpc::Status(grpc::UNIMPLEMENTED, "OperationsStreamAsync not supported in Tinkoff API")));
+    }
+}
+

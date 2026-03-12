@@ -20,10 +20,12 @@ public:
     OperationsStreamResponse() = default;
     explicit OperationsStreamResponse(const PortfolioStreamResponse& response);
     explicit OperationsStreamResponse(const PositionsStreamResponse& response);
+    explicit OperationsStreamResponse(const OperationsStreamResponse& response);
     
     // Check what type of payload is available
     bool hasPortfolio() const;
     bool hasPositions() const;
+    bool hasOperations() const;
     bool hasSubscriptions() const;
     bool hasPing() const;
     
@@ -32,6 +34,9 @@ public:
     
     // Get the positions response
     const PositionsStreamResponse& getPositions() const;
+    
+    // Get the operations response
+    const OperationsStreamResponse& getOperations() const { return *m_operationsResponsePtr; }
     
     // Get subscription result
     const PortfolioSubscriptionResult* getPortfolioSubscription() const;
@@ -47,12 +52,14 @@ private:
     enum class ResponseType {
         None,
         Portfolio,
-        Positions
+        Positions,
+        Operations
     };
     
     ResponseType m_type{ResponseType::None};
     PortfolioStreamResponse m_portfolioResponse;
     PositionsStreamResponse m_positionsResponse;
+    std::unique_ptr<OperationsStreamResponse> m_operationsResponsePtr;
 };
 
 #endif // OPERATIONSSTREAMRESPONSE_H
