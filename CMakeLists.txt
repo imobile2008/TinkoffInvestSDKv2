@@ -5,6 +5,15 @@ project(TinkoffInvestSDK)
 include(GenerateExportHeader)
 include(cmake/common.cmake)
 
+# Vcpkg integration (project-local)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake)
+  set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 file(GLOB tink_protos "${CMAKE_CURRENT_SOURCE_DIR}/investAPI/src/docs/contracts/*.proto")

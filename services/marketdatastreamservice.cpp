@@ -24,7 +24,7 @@ bool MarketDataStream::SubscribeCandles(const std::vector<std::pair<std::string,
         m_marketDataStreamService->MarketDataStream(&context));
 
     MarketDataRequest request;
-    auto scr = new SubscribeCandlesRequest();
+    auto scr = std::make_unique<SubscribeCandlesRequest>();
     scr->set_subscription_action(SubscriptionAction::SUBSCRIPTION_ACTION_SUBSCRIBE);
     for (auto &candleInstrument: candleInstruments)
     {
@@ -32,7 +32,7 @@ bool MarketDataStream::SubscribeCandles(const std::vector<std::pair<std::string,
         instr->set_figi(candleInstrument.first);
         instr->set_interval(candleInstrument.second);
     }
-    request.set_allocated_subscribe_candles_request(scr);
+    request.set_allocated_subscribe_candles_request(scr.release());
 
     std::thread writer([stream, request]() {
         stream->Write(request);
