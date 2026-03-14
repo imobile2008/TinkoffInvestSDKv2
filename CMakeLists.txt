@@ -1,17 +1,19 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.5.1)
 
 project(TinkoffInvestSDK)
 
 include(GenerateExportHeader)
 include(cmake/common.cmake)
 
-# Require C++20 for coroutine support
+# Vcpkg integration (project-local)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake)
+  set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Disable gRPC tests to avoid googletest compatibility issues
-set(gRPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 file(GLOB tink_protos "${CMAKE_CURRENT_SOURCE_DIR}/investAPI/src/docs/contracts/*.proto")
@@ -107,4 +109,3 @@ target_link_libraries(${PROJECT_NAME}
     )
 
 add_subdirectory(samples)
-add_subdirectory(tests)

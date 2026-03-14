@@ -116,14 +116,14 @@ ServiceReply Sandbox::GetSandboxOperations(const std::string &accountId, int64_t
 {
     OperationsRequest request;
     request.set_account_id(accountId);
-    google::protobuf::Timestamp * from = new google::protobuf::Timestamp();
+    auto from = std::make_unique<google::protobuf::Timestamp>();
     from->set_seconds(fromseconds);
     from->set_nanos(fromnanos);
-    request.set_allocated_from(from);
-    google::protobuf::Timestamp * to = new google::protobuf::Timestamp();
+    request.set_allocated_from(from.release());
+    auto to = std::make_unique<google::protobuf::Timestamp>();
     to->set_seconds(toseconds);
     to->set_nanos(tonanos);
-    request.set_allocated_to(to);
+    request.set_allocated_to(to.release());
     OperationsResponse reply;
     Status status = m_sandboxService->GetSandboxOperations(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<OperationsResponse>(status, reply);

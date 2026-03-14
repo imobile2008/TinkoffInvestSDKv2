@@ -5,6 +5,7 @@
 #include <grpcpp/grpcpp.h>
 #include "instruments.grpc.pb.h"
 #include "commontypes.h"
+#include <memory>
 
 using grpc::Channel;
 using namespace tinkoff::public_::invest::api::contract::v1;

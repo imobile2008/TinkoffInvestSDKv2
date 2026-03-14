@@ -3,6 +3,7 @@
 
 #include <grpcpp/grpcpp.h>
 #include <thread>
+#include <memory>
 #include "google/protobuf/message.h"
 #include "commontypes.h"
 

@@ -16,14 +16,14 @@ ServiceReply Instruments::TradingSchedules(const std::string &exchange, int64_t 
 {
     TradingSchedulesRequest request;
     request.set_exchange(exchange);
-    google::protobuf::Timestamp * from = new google::protobuf::Timestamp();
+    auto from = std::make_unique<google::protobuf::Timestamp>();
     from->set_seconds(fromseconds);
     from->set_nanos(fromnanos);
-    request.set_allocated_from(from);
-    google::protobuf::Timestamp * to = new google::protobuf::Timestamp();
+    request.set_allocated_from(from.release());
+    auto to = std::make_unique<google::protobuf::Timestamp>();
     to->set_seconds(toseconds);
     to->set_nanos(tonanos);
-    request.set_allocated_to(to);
+    request.set_allocated_to(to.release());
     TradingSchedulesResponse reply;
     Status status = m_instrumentsService->TradingSchedules(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<TradingSchedulesResponse>(status, reply, exchange);
@@ -53,14 +53,14 @@ ServiceReply Instruments::GetBondCoupons(const std::string  &figi, int64_t froms
 {
     GetBondCouponsRequest request;
     request.set_figi(figi);
-    google::protobuf::Timestamp * from = new google::protobuf::Timestamp();
+    auto from = std::make_unique<google::protobuf::Timestamp>();
     from->set_seconds(fromseconds);
     from->set_nanos(fromnanos);
-    request.set_allocated_from(from);
-    google::protobuf::Timestamp * to = new google::protobuf::Timestamp();
+    request.set_allocated_from(from.release());
+    auto to = std::make_unique<google::protobuf::Timestamp>();
     to->set_seconds(toseconds);
     to->set_nanos(tonanos);
-    request.set_allocated_to(to);
+    request.set_allocated_to(to.release());
     GetBondCouponsResponse reply;
     Status status = m_instrumentsService->GetBondCoupons(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<GetBondCouponsResponse>(status, reply);
@@ -150,14 +150,14 @@ ServiceReply Instruments::GetAccruedInterests(const std::string  &figi, int64_t 
 {
     GetAccruedInterestsRequest request;
     request.set_figi(figi);
-    google::protobuf::Timestamp * from = new google::protobuf::Timestamp();
+    auto from = std::make_unique<google::protobuf::Timestamp>();
     from->set_seconds(fromseconds);
     from->set_nanos(fromnanos);
-    request.set_allocated_from(from);
-    google::protobuf::Timestamp * to = new google::protobuf::Timestamp();
+    request.set_allocated_from(from.release());
+    auto to = std::make_unique<google::protobuf::Timestamp>();
     to->set_seconds(toseconds);
     to->set_nanos(tonanos);
-    request.set_allocated_to(to);
+    request.set_allocated_to(to.release());
     GetAccruedInterestsResponse reply;
     Status status = m_instrumentsService->GetAccruedInterests(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<GetAccruedInterestsResponse>(status, reply);
@@ -187,14 +187,14 @@ ServiceReply Instruments::GetDividends(const std::string  &figi, int64_t fromsec
 {
     GetDividendsRequest request;
     request.set_figi(figi);
-    google::protobuf::Timestamp * from = new google::protobuf::Timestamp();
+    auto from = std::make_unique<google::protobuf::Timestamp>();
     from->set_seconds(fromseconds);
     from->set_nanos(fromnanos);
-    request.set_allocated_from(from);
-    google::protobuf::Timestamp * to = new google::protobuf::Timestamp();
+    request.set_allocated_from(from.release());
+    auto to = std::make_unique<google::protobuf::Timestamp>();
     to->set_seconds(toseconds);
     to->set_nanos(tonanos);
-    request.set_allocated_to(to);
+    request.set_allocated_to(to.release());
     GetDividendsResponse reply;
     Status status = m_instrumentsService->GetDividends(makeContext().get(), request, &reply);
     return ServiceReply::prepareServiceAnswer<GetDividendsResponse>(status, reply);
