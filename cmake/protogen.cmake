@@ -80,7 +80,10 @@ function(tinvest_generate_protos target protos)
   endforeach()
 
   add_library(${target} STATIC ${gen_srcs})
-  target_include_directories(${target} SYSTEM PUBLIC ${gen_dir})
+  target_include_directories(${target} SYSTEM PUBLIC
+    $<BUILD_INTERFACE:${gen_dir}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/tinvest-proto>
+  )
   target_link_libraries(${target} PUBLIC
     ${TINVEST_GRPC_LIB} protobuf::libprotobuf Threads::Threads
   )

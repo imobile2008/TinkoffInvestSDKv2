@@ -4,6 +4,7 @@
 
 #include "tinvest/awaitable.hpp"
 #include "tinvest/call_options.hpp"
+#include "tinvest/version.hpp"
 #include "tinvest/client.hpp"
 #include "tinvest/decimal.hpp"
 #include "tinvest/error.hpp"
